@@ -14,7 +14,7 @@ env.read_env()
 
 MY_ID = env("MY_ID")
 GROUP_ID = env("GROUP_ID")
-DESCRIBE = env("DESCRIBE")
+DESCRIPTION = env("DESCRIPTION")
 BOT_TOKEN = env("BOT_TOKEN")
 
 
@@ -46,31 +46,31 @@ async def forward_to_your_group(update: Update, context: ContextTypes.DEFAULT_TY
         await context.bot.send_photo(
             chat_id=GROUP_ID,
             photo=update.message.photo[0].file_id,
-            caption=DESCRIBE
+            caption=DESCRIPTION
         )
     elif update.message.animation:
         await context.bot.send_animation(
             chat_id=GROUP_ID,
             animation=update.message.animation.file_id,
-            caption=DESCRIBE
+            caption=DESCRIPTION
         )
     elif update.message.audio:
         await context.bot.send_audio(
             chat_id=GROUP_ID,
             audio=update.message.audio.file_id,
-            caption=DESCRIBE
+            caption=DESCRIPTION
         )
     elif update.message.document:
         await context.bot.send_document(
             chat_id=GROUP_ID,
             document=update.message.document.file_id,
-            caption=DESCRIBE
+            caption=DESCRIPTION
         )
     elif update.message.video:
         await context.bot.send_video(
             chat_id=GROUP_ID,
             video=update.message.video.file_id,
-            caption=DESCRIBE
+            caption=DESCRIPTION
         )
 
 
