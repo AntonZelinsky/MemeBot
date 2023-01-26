@@ -20,13 +20,15 @@ BOT_TOKEN = env("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Печатает id твоего профиля при запуске бота."""
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=update.effective_chat.id)
+    text = f"Ваш ID: {update.effective_chat.id}, добавьте его в переменную MY_ID"
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 
 async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """В режиме реального времени выводит название и номер группы, в которую добавляют бота с правами админа."""
     if update.my_chat_member.new_chat_member.status == 'administrator':
-        text = f"Группа '{update.my_chat_member.chat.title}' ID: {update.my_chat_member.chat.id}"
+        text = (f"Группа '{update.my_chat_member.chat.title}' ID: {update.my_chat_member.chat.id}, "
+               f"добавьте его в переменную GROUP_ID")
         await context.bot.send_message(chat_id=update.my_chat_member.from_user.id, text=text)
 
 
