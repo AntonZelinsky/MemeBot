@@ -12,8 +12,8 @@ from telegram.ext import (
 env = Env()
 env.read_env()
 
-MY_ID = env("MY_ID")
-GROUP_ID = env("GROUP_ID")
+MY_ID = env.int("MY_ID")
+GROUP_ID = env.int("GROUP_ID")
 DESCRIPTION = env("DESCRIPTION")
 BOT_TOKEN = env("BOT_TOKEN")
 
@@ -28,7 +28,7 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     """В режиме реального времени выводит название и номер группы, в которую добавляют бота с правами админа."""
     if update.my_chat_member.new_chat_member.status == 'administrator':
         text = (f"Группа '{update.my_chat_member.chat.title}' ID: {update.my_chat_member.chat.id}, "
-               f"добавьте его в переменную GROUP_ID")
+                f"добавьте его в переменную GROUP_ID")
         await context.bot.send_message(chat_id=update.my_chat_member.from_user.id, text=text)
 
 
