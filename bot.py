@@ -36,6 +36,8 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def forward_to_your_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Публикует фото, анимацию, аудио и документы в группу из переменной group_chat."""
+    if update.effective_chat.type == "channel":
+        return
     if MY_ID is None or GROUP_ID is None:
         text = "Заполните переменные MY_ID и GROUP_ID"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
