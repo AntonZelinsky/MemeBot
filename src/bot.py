@@ -6,8 +6,8 @@ from telegram.ext import (
     filters,
 )
 
-from handlers import forward_to_your_group, start, track_chats
-from setting import BOT_TOKEN
+from src.handlers import forward_to_your_group, start, track_chats
+from src.setting import BOT_TOKEN
 
 
 def create_bot():

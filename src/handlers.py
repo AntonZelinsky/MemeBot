@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from setting import DESCRIPTION, GROUP_ID, MY_ID
+from src.setting import DESCRIPTION, GROUP_ID, MY_ID
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
