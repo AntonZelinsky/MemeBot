@@ -33,4 +33,4 @@ jobs:
             python3 -m pip install poetry
             poetry install
             poetry shell
-            python3 bot.py
+            python3 run.py
