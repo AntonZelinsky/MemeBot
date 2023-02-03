@@ -11,7 +11,7 @@ class Base:
     """Базовая модель."""
 
     @declared_attr
-    def __tablename__(cls):
+    def __tablename__(cls) -> str:
         return cls.__name__.lower()
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -35,11 +35,12 @@ class User(Base):
 
     def __repr__(self):
         return (
+            f"User: "
             f"id={self.id!r}, "
-            f"account_id={self.account_id!r}>, "
+            f"account_id={self.account_id!r}, "
             f"first_name={self.first_name!r}, "
             f"last_name={self.last_name!r}, "
-            f"username={self.username!r}>, "
+            f"username={self.username!r}, "
             f"is_active={self.is_active!r}"
         )
 
@@ -56,9 +57,10 @@ class Channel(Base):
 
     def __repr__(self):
         return (
+            f"Channel: "
             f"id={self.id!r}, "
             f"channel_id={self.channel_id!r}, "
             f"title={self.title!r}, "
-            f"invited_user={self.invited_user!r}, "
+            f"invited_user_id={self.invited_user_id!r}, "
             f"is_active={self.is_active!r}"
         )
