@@ -40,15 +40,15 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await channel_crud.create(current_channel_data, session)
             text = f"Бот добавлен в канал '{my_chat.chat.title}'"
             await context.bot.send_message(chat_id=account_id, text=text)
-
         elif my_chat.new_chat_member.status in ChatMember.ADMINISTRATOR:
             text = f"У бота в канале '{my_chat.chat.title}' изменены права"
             await context.bot.send_message(chat_id=account_id, text=text)
         # При удалении бота из канала деактивируем чат в базе
         else:
-            await services.deactivate_channel(my_chat.chat.id, session)
-            text = f"Бот удален из канала '{my_chat.chat.title}'"
-            await context.bot.send_message(chat_id=account_id, text=text)
+            channel_db = await services.deactivate_channel(my_chat.chat.id, session)
+            if channel_db.user.is_active:
+                text = f"Бот удален из канала '{my_chat.chat.title}'"
+                await context.bot.send_message(chat_id=channel_db.user.account_id, text=text)
 
 
 async def forward_to_your_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
