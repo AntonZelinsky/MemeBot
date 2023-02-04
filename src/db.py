@@ -2,6 +2,7 @@ from typing import Optional
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import selectinload
 
 from src.models import Channel, User
 from src.settings import DATABASE_URL
@@ -25,7 +26,9 @@ class BaseCRUD:
 class UserCRUD(BaseCRUD):
     async def get_user(self, account_id: int, session: AsyncSession) -> Optional[User]:
         """Возвращает объект User из БД по его account_id."""
-        user = await session.execute(select(self._model).where(self._model.account_id == account_id))
+        user = await session.execute(
+            select(self._model).where(self._model.account_id == account_id).options(selectinload(self._model.channels))
+        )
         return user.scalars().first()
 
 
@@ -33,13 +36,19 @@ class ChannelCRUD(BaseCRUD):
     async def get_channel(self, channel_id: int, session: AsyncSession) -> Optional[User]:
         """Возвращает объект Channel из БД по его channel_id."""
         channel = await session.execute(
-            select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active is True)
+            select(self._model)
+            .where(self._model.channel_id == channel_id)
+            .where(self._model.is_active == True)
+            .options(selectinload(self._model.user))
         )
         return channel.scalars().first()
 
     async def get_channel_by_user(self, user: User, session: AsyncSession) -> Channel:
         channel = await session.execute(
-            select(self._model).where(self._model.invited_user_id == user.id).where(self._model.is_active is True)
+            select(self._model)
+            .where(self._model.invited_user_id == user.id)
+            .where(self._model.is_active == True)
+            .options(selectinload(self._model.user))
         )
         return channel.scalars().first()
 
