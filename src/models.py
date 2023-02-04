@@ -2,38 +2,29 @@ from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import ForeignKey, func
-from sqlalchemy.ext.declarative import as_declarative
-from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-@as_declarative()
-class Base:
+class Base(DeclarativeBase):
     """Базовая модель."""
 
-    @declared_attr
-    def __tablename__(cls) -> str:
-        return cls.__name__.lower()
-
     id: Mapped[int] = mapped_column(primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(default=func.current_timestamp(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        default=func.current_timestamp(),
-        nullable=False,
-        onupdate=func.current_timestamp(),
-    )
+    created_at: Mapped[datetime] = mapped_column(default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(default=func.now(), nullable=False, onupdate=func.now())
 
 
 class User(Base):
     """Модель пользователя."""
 
+    __tablename__ = "user"
     account_id: Mapped[int] = mapped_column(unique=True)
     first_name: Mapped[str]
     last_name: Mapped[Optional[str]]
     username: Mapped[Optional[str]]
-    channel: Mapped[List["Channel"]] = relationship(back_populates="user")
+    channels: Mapped[List["Channel"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     is_active: Mapped[bool] = mapped_column(default=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"User: "
             f"id={self.id!r}, "
@@ -48,14 +39,15 @@ class User(Base):
 class Channel(Base):
     """Модель канала."""
 
+    __tablename__ = "channel"
     channel_id: Mapped[int]
     title: Mapped[str]
     username: Mapped[Optional[str]]
     invited_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    user: Mapped["User"] = relationship(back_populates="channel")
+    user: Mapped["User"] = relationship(back_populates="channels")
     is_active: Mapped[bool] = mapped_column(default=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"Channel: "
             f"id={self.id!r}, "
