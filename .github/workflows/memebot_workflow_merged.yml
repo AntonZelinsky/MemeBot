@@ -1,0 +1,34 @@
+name: MemeBot workflow merged
+
+on:
+  pull_request:
+    branches:
+      - develop
+    types: [ closed ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: executing remote ssh commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          script: |
+            
+            rm -r MemeBot
+            git clone https://github.com/AntonZelinsky/MemeBot
+            cd MemeBot
+            
+            touch .env
+            
+            echo MY_ID=${{ secrets.MY_ID }} >> .env
+            echo GROUP_ID=${{ secrets.GROUP_ID }} >> .env
+            echo DESCRIPTION=${{ secrets.DESCRIPTION }} >> .env
+            echo BOT_TOKEN=${{ secrets.BOT_TOKEN }} >> .env
+            
+            python3 -m pip install -r requirements.txt
+            python3 bot.py

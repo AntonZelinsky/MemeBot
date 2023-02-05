@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "memebot"
+version = "0.1.0"
+description = ""
+authors = ["pozarnik"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+environs = "^9.5.0"
+python-telegram-bot = "^20.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.0.1"
+black = "^22.12.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
