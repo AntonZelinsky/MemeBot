@@ -1,4 +1,5 @@
-from telegram import Chat, ChatMember, Update
+from sqlalchemy.ext.asyncio import AsyncSession
+from telegram import Chat, ChatMember, ChatMemberUpdated, Update
 from telegram.ext import ContextTypes
 
 from src import services
@@ -6,31 +7,33 @@ from src.db import channel_crud, get_async_session, user_crud
 from src.settings import DESCRIPTION
 
 
-async def save_or_update_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Добавляем либо обновляем профиль пользователя в БД."""
-    current_user_data = services.user_parser(update.effective_chat)
-    get_session = get_async_session()
-    session = await get_session.__anext__()
-    user_db = await user_crud.get_user(current_user_data["account_id"], session)
-    if user_db is None:
-        await user_crud.create(current_user_data, session)
+async def personal_chat(my_chat_member: ChatMemberUpdated, status: str, session: AsyncSession):
+    """Создает, обновляет информацию о пользователе."""
+    account_id = my_chat_member.from_user.id
+    current_user_data = services.user_parser(my_chat_member.from_user)
+    user_db = await user_crud.get_user(account_id, session)
+    if user_db:
+        user_id = user_db.id
+        await user_crud.update(user_id, current_user_data, session)
     else:
-        await user_crud.update(user_db, current_user_data, session)
-        await services.activate_user(account_id=current_user_data["account_id"], session=session)
+        user_id = await user_crud.create(current_user_data, session)
+    if status in ChatMember.BANNED:
+        await services.activate_user(user_id=user_id, session=session, status=False)
+    else:
+        await services.activate_user(user_id=user_id, session=session)
 
 
 async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """В режиме реального времени доступ бота к чатам."""
-    chat = update.effective_chat
     my_chat = update.my_chat_member
     account_id = my_chat.from_user.id
     get_session = get_async_session()
     session = await get_session.__anext__()
-    # Отслеживаем блокировку чата пользователя и деактивируем его профиль
-    if chat.type in Chat.PRIVATE and my_chat.new_chat_member.status in ChatMember.BANNED:
-        await services.activate_user(account_id=account_id, session=session, status=False)
+    if my_chat.chat.type in Chat.PRIVATE:
+        if (status := my_chat.new_chat_member.status) != my_chat.old_chat_member.status:
+            await personal_chat(my_chat, status, session)
     # Отслеживаем действия в чатах каналов и добавляем канал в базу, либо его деактивируем
-    if chat.type in Chat.CHANNEL:
+    if my_chat.chat.type in Chat.CHANNEL:
         if (
             my_chat.new_chat_member.status in ChatMember.ADMINISTRATOR
             and my_chat.old_chat_member.status not in ChatMember.ADMINISTRATOR
