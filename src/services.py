@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from telegram import Chat, User
 
 from src.db import channel_crud, user_crud
+from src.models import User as user_model
 
 
 def user_parser(user: User) -> dict:
@@ -15,7 +16,7 @@ def user_parser(user: User) -> dict:
     return parsed_user
 
 
-def channel_parser(chat: Chat, user: User) -> dict:
+def channel_parser(chat: Chat, user: user_model) -> dict:
     """Парсит данные канала из чата."""
     channel = {
         "channel_id": chat.id,
