@@ -1,19 +1,18 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from telegram import Chat
+from telegram import Chat, User
 
 from src.db import channel_crud, user_crud
-from src.models import User
 
 
-def user_parser(chat: Chat) -> dict:
+def user_parser(user: User) -> dict:
     """Парсит данные пользователя из чата."""
-    user = {
-        "account_id": chat.id,
-        "first_name": chat.first_name,
-        "last_name": chat.last_name or None,
-        "username": chat.username or None,
+    parsed_user = {
+        "account_id": user.id,
+        "first_name": user.first_name,
+        "last_name": user.last_name or None,
+        "username": user.username or None,
     }
-    return user
+    return parsed_user
 
 
 def channel_parser(chat: Chat, user: User) -> dict:
@@ -27,12 +26,10 @@ def channel_parser(chat: Chat, user: User) -> dict:
     return channel
 
 
-async def activate_user(account_id: int, session: AsyncSession, status: bool = True):
+async def activate_user(user_id: int, session: AsyncSession, status: bool = True):
     """Изменяет статус is_active у пользователя."""
     is_active = {"is_active": status}
-    user_db = await user_crud.get_user(account_id, session)
-    if user_db:
-        await user_crud.update(user_db, is_active, session)
+    await user_crud.update(user_id, is_active, session)
 
 
 async def deactivate_channel(channel_id: int, session: AsyncSession):
