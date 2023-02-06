@@ -13,13 +13,14 @@ class BaseCRUD:
         self._model = model
 
     async def create(self, new_data: dict, session: AsyncSession):
-        """Создает объект текущей модели."""
-        await session.execute(insert(self._model).values(new_data))
+        """Создает объект текущей модели и возвращает его id."""
+        obj_id = await session.execute(insert(self._model).values(new_data).returning(self._model.id))
         await session.commit()
+        return obj_id.scalars().first()
 
-    async def update(self, object_db, update_data: dict, session: AsyncSession):
+    async def update(self, object_id: int, update_data: dict, session: AsyncSession):
         """Обновляет объект текущей модели."""
-        await session.execute(update(self._model).where(self._model.id == object_db.id).values(update_data))
+        await session.execute(update(self._model).where(self._model.id == object_id).values(update_data))
         await session.commit()
 
 
@@ -44,6 +45,7 @@ class ChannelCRUD(BaseCRUD):
         return channel.scalars().first()
 
     async def get_channel_by_user(self, user: User, session: AsyncSession) -> Channel:
+        """Возвращает объект Channel из БД по его invited_user_id."""
         channel = await session.execute(
             select(self._model)
             .where(self._model.invited_user_id == user.id)
