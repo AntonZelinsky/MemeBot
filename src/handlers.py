@@ -7,8 +7,8 @@ from src.db import channel_crud, get_async_session, user_crud
 from src.settings import DESCRIPTION
 
 
-async def personal_chat(my_chat_member: ChatMemberUpdated, status: str, session: AsyncSession):
-    """Создает, обновляет информацию о пользователе."""
+async def personal_chat(my_chat_member: ChatMemberUpdated, current_status: str, session: AsyncSession):
+    """Добавляет и изменяет информацию в БД о пользователях бота."""
     account_id = my_chat_member.from_user.id
     current_user_data = services.user_parser(my_chat_member.from_user)
     user_db = await user_crud.get_user(account_id, session)
@@ -17,41 +17,63 @@ async def personal_chat(my_chat_member: ChatMemberUpdated, status: str, session:
         await user_crud.update(user_id, current_user_data, session)
     else:
         user_id = await user_crud.create(current_user_data, session)
-    if status in ChatMember.BANNED:
+
+    if current_status in ChatMember.BANNED:
         await services.activate_user(user_id=user_id, session=session, status=False)
-    else:
+    elif current_status in ChatMember.MEMBER:
         await services.activate_user(user_id=user_id, session=session)
+    return user_id
+
+
+async def channel_chat(
+    my_chat: ChatMemberUpdated,
+    current_status: str,
+    previous_status: str,
+    session: AsyncSession,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    """Добавляет и изменяет информацию в БД о доступных боту каналах."""
+    message = None
+
+    if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
+        user_id = await personal_chat(my_chat, current_status, session)
+        current_channel_data = services.channel_parser(my_chat.chat, user_id)
+        await channel_crud.create(current_channel_data, session)
+        text = f"Бот добавлен в канал '{my_chat.chat.title}',"
+        rights_text = services.check_bot_privileges(my_chat.new_chat_member)
+        message = text + rights_text
+
+    elif current_status == previous_status:
+        text = f"У бота в канале '{my_chat.chat.title}' изменены права,"
+        rights_text = services.check_bot_privileges(my_chat.new_chat_member)
+        message = text + rights_text
+
+    channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
+
+    if current_status in [ChatMember.BANNED, ChatMember.LEFT]:
+        if channel_db:
+            await services.deactivate_channel(channel_db.id, session)
+            message = f"Бот удален из канала '{my_chat.chat.title}'"
+
+    if channel_db and channel_db.user.is_active:
+        await context.bot.send_message(chat_id=channel_db.user.account_id, text=message)
 
 
 async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """В режиме реального времени доступ бота к чатам."""
-    my_chat = update.my_chat_member
-    account_id = my_chat.from_user.id
+    """Проверяет чаты бота."""
     get_session = get_async_session()
     session = await get_session.__anext__()
+
+    my_chat = update.my_chat_member
+    current_status = my_chat.new_chat_member.status
+    previous_status = my_chat.old_chat_member.status
+
     if my_chat.chat.type in Chat.PRIVATE:
-        if (status := my_chat.new_chat_member.status) != my_chat.old_chat_member.status:
-            await personal_chat(my_chat, status, session)
-    # Отслеживаем действия в чатах каналов и добавляем канал в базу, либо его деактивируем
+        if current_status != previous_status:
+            await personal_chat(my_chat, current_status, session)
+
     if my_chat.chat.type in Chat.CHANNEL:
-        if (
-            my_chat.new_chat_member.status in ChatMember.ADMINISTRATOR
-            and my_chat.old_chat_member.status not in ChatMember.ADMINISTRATOR
-        ):
-            user_db = await user_crud.get_user(account_id, session)
-            current_channel_data = services.channel_parser(my_chat.chat, user_db)
-            await channel_crud.create(current_channel_data, session)
-            text = f"Бот добавлен в канал '{my_chat.chat.title}'"
-            await context.bot.send_message(chat_id=account_id, text=text)
-        elif my_chat.new_chat_member.status in ChatMember.ADMINISTRATOR:
-            text = f"У бота в канале '{my_chat.chat.title}' изменены права"
-            await context.bot.send_message(chat_id=account_id, text=text)
-        # При удалении бота из канала деактивируем чат в базе
-        else:
-            channel_db = await services.deactivate_channel(my_chat.chat.id, session)
-            if channel_db.user.is_active:
-                text = f"Бот удален из канала '{my_chat.chat.title}'"
-                await context.bot.send_message(chat_id=channel_db.user.account_id, text=text)
+        await channel_chat(my_chat, current_status, previous_status, session, context)
 
 
 async def forward_to_your_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
