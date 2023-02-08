@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from telegram import Chat, ChatMember, ChatMemberUpdated, Update
+from telegram import Chat, ChatMember, ChatMemberUpdated, Message, Update
 from telegram.ext import ContextTypes
 
 from src import services
@@ -76,33 +76,29 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await channel_chat(my_chat, current_status, previous_status, session, context)
 
 
-async def forward_to_your_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Публикует фото, анимацию, аудио и документы в группу из переменной group_chat."""
+async def posting_message(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE):
+    """Публикует вложение из сообщения пользователя в канал."""
+    if message.animation:
+        await context.bot.send_animation(
+            chat_id=channel_id,
+            animation=message.animation.file_id,
+            caption=DESCRIPTION,
+        )
+    elif message.photo:
+        await context.bot.send_photo(chat_id=channel_id, photo=message.photo[0].file_id, caption=DESCRIPTION)
+    else:
+        await context.bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
+
+
+async def forward_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Парсит фото, видео и анимацию из сообщения от пользователя."""
+    message = update.message
+    if not message.animation and not message.photo and not message.video:
+        return
     get_session = get_async_session()
     session = await get_session.__anext__()
     user_db = await user_crud.get_user(update.effective_user.id, session)
-    channel_db = await channel_crud.get_channel_by_user(user_db, session)
-    if update.message.photo:
-        await context.bot.send_photo(
-            chat_id=channel_db.channel_id, photo=update.message.photo[0].file_id, caption=DESCRIPTION
-        )
-    elif update.message.animation:
-        await context.bot.send_animation(
-            chat_id=channel_db.channel_id,
-            animation=update.message.animation.file_id,
-            caption=DESCRIPTION,
-        )
-    elif update.message.audio:
-        await context.bot.send_audio(
-            chat_id=channel_db.channel_id, audio=update.message.audio.file_id, caption=DESCRIPTION
-        )
-    elif update.message.document:
-        await context.bot.send_document(
-            chat_id=channel_db.channel_id,
-            document=update.message.document.file_id,
-            caption=DESCRIPTION,
-        )
-    elif update.message.video:
-        await context.bot.send_video(
-            chat_id=channel_db.channel_id, video=update.message.video.file_id, caption=DESCRIPTION
-        )
+    for channel in user_db.channels:
+        if channel and channel.is_active is True:
+            channel_id = channel.channel_id
+            await posting_message(message, channel_id, context)
