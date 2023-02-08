@@ -44,16 +44,6 @@ class ChannelCRUD(BaseCRUD):
         )
         return channel.scalars().first()
 
-    async def get_channel_by_user(self, user: User, session: AsyncSession) -> Channel:
-        """Возвращает объект Channel из БД по его invited_user_id."""
-        channel = await session.execute(
-            select(self._model)
-            .where(self._model.invited_user_id == user.id)
-            .where(self._model.is_active == True)
-            .options(selectinload(self._model.user))
-        )
-        return channel.scalars().first()
-
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 
