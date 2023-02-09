@@ -64,7 +64,7 @@ alembic upgrade head
 - Запустите бота
 
 ```shell
-python.exe run.py
+python.exe run_pulling.py
 ```
 
 </details>
