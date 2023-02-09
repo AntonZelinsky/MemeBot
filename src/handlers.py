@@ -3,7 +3,7 @@ from telegram import Chat, ChatMember, ChatMemberUpdated, Message, Update
 from telegram.ext import ContextTypes
 
 from src import services
-from src.db import channel_crud, get_async_session, user_crud
+from src.db.crud import channel_crud, get_async_session, user_crud
 from src.settings import DESCRIPTION
 
 
