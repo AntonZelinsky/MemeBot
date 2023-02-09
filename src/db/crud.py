@@ -4,7 +4,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import selectinload
 
-from src.models import Channel, User
+from src.db.models import Channel, User
 from src.settings import DATABASE_URL
 
 
