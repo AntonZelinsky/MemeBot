@@ -21,7 +21,7 @@ class User(Base):
     first_name: Mapped[str]
     last_name: Mapped[Optional[str]]
     username: Mapped[Optional[str]]
-    channels: Mapped[List["Channel"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    channels: Mapped[List["Channel"]] = relationship(lazy="selectin", cascade="all, delete-orphan")
     is_active: Mapped[bool] = mapped_column(default=True)
 
     def __repr__(self) -> str:
@@ -44,7 +44,7 @@ class Channel(Base):
     title: Mapped[str]
     username: Mapped[Optional[str]]
     invited_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    user: Mapped["User"] = relationship(back_populates="channels")
+    user: Mapped["User"] = relationship(lazy="select")
     is_active: Mapped[bool] = mapped_column(default=True)
 
     def __repr__(self) -> str:
