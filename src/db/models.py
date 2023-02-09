@@ -21,7 +21,9 @@ class User(Base):
     first_name: Mapped[str]
     last_name: Mapped[Optional[str]]
     username: Mapped[Optional[str]]
-    channels: Mapped[List["Channel"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    channels: Mapped[List["Channel"]] = relationship(
+        back_populates="user", lazy="selectin", cascade="all, delete-orphan"
+    )
     is_active: Mapped[bool] = mapped_column(default=True)
 
     def __repr__(self) -> str:
