@@ -92,13 +92,10 @@ async def posting_message(message: Message, channel_id: int, context: ContextTyp
 
 async def forward_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Парсит фото, видео и анимацию из сообщения от пользователя."""
-    message = update.message
-    if not message.animation and not message.photo and not message.video:
-        return
     get_session = get_async_session()
     session = await get_session.__anext__()
     user_db = await user_crud.get_user(update.effective_user.id, session)
     for channel in user_db.channels:
         if channel and channel.is_active is True:
             channel_id = channel.channel_id
-            await posting_message(message, channel_id, context)
+            await posting_message(update.message, channel_id, context)
