@@ -46,7 +46,7 @@ class Channel(Base):
     title: Mapped[str]
     username: Mapped[Optional[str]]
     invited_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    user: Mapped["User"] = relationship(back_populates="channels")
+    user: Mapped["User"] = relationship(back_populates="channels", lazy="selectin")
     is_active: Mapped[bool] = mapped_column(default=True)
 
     def __repr__(self) -> str:
