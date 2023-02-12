@@ -7,7 +7,7 @@ from src.db.crud import channel_crud, get_async_session, user_crud
 from src.settings import DESCRIPTION
 
 
-async def personal_chat(my_chat_member: ChatMemberUpdated, current_status: str, session: AsyncSession):
+async def personal_chat_handler(my_chat_member: ChatMemberUpdated, current_status: str, session: AsyncSession):
     """Добавляет и изменяет информацию в БД о пользователях бота."""
     account_id = my_chat_member.from_user.id
     current_user_data = services.user_parser(my_chat_member.from_user)
@@ -25,7 +25,7 @@ async def personal_chat(my_chat_member: ChatMemberUpdated, current_status: str, 
     return user_id
 
 
-async def channel_chat(
+async def channel_chat_handler(
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
@@ -36,7 +36,7 @@ async def channel_chat(
     message = None
 
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        user_id = await personal_chat(my_chat, current_status, session)
+        user_id = await personal_chat_handler(my_chat, current_status, session)
         current_channel_data = services.channel_parser(my_chat.chat, user_id)
         await channel_crud.create(current_channel_data, session)
         text = f"Бот добавлен в канал '{my_chat.chat.title}',"
@@ -59,7 +59,7 @@ async def channel_chat(
         await context.bot.send_message(chat_id=channel_db.user.account_id, text=message)
 
 
-async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Проверяет чаты бота."""
     get_session = get_async_session()
     session = await get_session.__anext__()
@@ -70,13 +70,13 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     if my_chat.chat.type in Chat.PRIVATE:
         if current_status != previous_status:
-            await personal_chat(my_chat, current_status, session)
+            await personal_chat_handler(my_chat, current_status, session)
 
     if my_chat.chat.type in Chat.CHANNEL:
-        await channel_chat(my_chat, current_status, previous_status, session, context)
+        await channel_chat_handler(my_chat, current_status, previous_status, session, context)
 
 
-async def posting_message(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE):
+async def posting_message_handler(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE):
     """Публикует вложение из сообщения пользователя в канал."""
     if message.animation:
         await context.bot.send_animation(
@@ -90,7 +90,7 @@ async def posting_message(message: Message, channel_id: int, context: ContextTyp
         await context.bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
 
 
-async def forward_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Парсит фото, видео и анимацию из сообщения от пользователя."""
     get_session = get_async_session()
     session = await get_session.__anext__()
@@ -98,4 +98,4 @@ async def forward_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for channel in user_db.channels:
         if channel and channel.is_active is True:
             channel_id = channel.channel_id
-            await posting_message(update.message, channel_id, context)
+            await posting_message_handler(update.message, channel_id, context)
