@@ -31,6 +31,5 @@ jobs:
             echo BOT_TOKEN=${{ secrets.BOT_TOKEN }} >> .env
             
             python3 -m pip install -r requirements.txt
-            python3 alembic revision --message="Initial" --autogenerate
             python3 alembic upgrade head
             python3 run_pulling.py
