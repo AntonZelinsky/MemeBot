@@ -24,11 +24,9 @@ jobs:
             cd MemeBot
             
             touch .env
-            
-            echo MY_ID=${{ secrets.MY_ID }} >> .env
-            echo GROUP_ID=${{ secrets.GROUP_ID }} >> .env
             echo DESCRIPTION=${{ secrets.DESCRIPTION }} >> .env
             echo BOT_TOKEN=${{ secrets.BOT_TOKEN }} >> .env
+            echo DATABASE_URL=${{ secrets.DATABASE_URL }} >> .env
             
             python3 -m pip install -r requirements.txt
             python3 alembic upgrade head
