@@ -45,6 +45,7 @@ class Channel(Base):
     channel_id: Mapped[int]
     title: Mapped[str]
     username: Mapped[Optional[str]]
+    text_message: Mapped[Optional[str]]
     invited_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     user: Mapped["User"] = relationship(back_populates="channels", lazy="selectin")
     is_active: Mapped[bool] = mapped_column(default=True)
@@ -54,6 +55,8 @@ class Channel(Base):
             f"Channel: "
             f"id={self.id!r}, "
             f"channel_id={self.channel_id!r}, "
+            f"username={self.username}, "
+            f"text_message={self.text_message}"
             f"title={self.title!r}, "
             f"invited_user_id={self.invited_user_id!r}, "
             f"is_active={self.is_active!r}"
