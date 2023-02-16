@@ -89,9 +89,8 @@ async def check_channel_chat_status(
     current_status: str,
     previous_status: str,
     session: AsyncSession,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-    """Проверяет статус чата канала и обновляет информацию о канале в БД."""
+) -> DatabaseModel:
+    """Проверяет статус чата в канале и обновляет информации о канале в БД."""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
         user = await get_or_create_or_update_user(my_chat, session)
         channel_db = await create_channel(my_chat, user.id, session)
@@ -101,6 +100,18 @@ async def check_channel_chat_status(
             await change_activate(object=channel_db, status=DEACTIVATE, session=session)
     else:
         channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
+    return channel_db
+
+
+async def check_channel_chat(
+    my_chat: ChatMemberUpdated,
+    current_status: str,
+    previous_status: str,
+    session: AsyncSession,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """Проверяет обновления из каналов."""
+    channel_db = await (my_chat, current_status, previous_status, session)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, context)
 
