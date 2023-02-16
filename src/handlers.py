@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from telegram import Chat, ChatMember, ChatMemberUpdated, Message, Update
+from telegram import Chat, ChatMemberUpdated, Message, Update
 from telegram.ext import ContextTypes
 
 from src import services
@@ -7,22 +7,10 @@ from src.db.crud import channel_crud, get_async_session, user_crud
 from src.settings import DESCRIPTION
 
 
-async def personal_chat_handler(my_chat_member: ChatMemberUpdated, current_status: str, session: AsyncSession):
-    """Добавляет и изменяет информацию в БД о пользователях бота."""
-    account_id = my_chat_member.from_user.id
-    current_user_data = services.user_parser(my_chat_member.from_user)
-    user_db = await user_crud.get_user(account_id, session)
-    if user_db:
-        user_id = user_db.id
-        await user_crud.update(user_id, current_user_data, session)
-    else:
-        user_id = await user_crud.create(current_user_data, session)
-
-    if current_status in ChatMember.BANNED:
-        await services.activate_user(user_id=user_id, session=session, status=False)
-    elif current_status in ChatMember.MEMBER:
-        await services.activate_user(user_id=user_id, session=session)
-    return user_id
+async def personal_chat_handler(my_chat_member: ChatMemberUpdated, current_status: str, session: AsyncSession) -> None:
+    """Изменяет данные о пользователе, в зависимости от статуса приватного чата."""
+    user_id = await services.get_or_create_or_update_user(my_chat_member, session)
+    await services.check_private_chat_status(current_status, user_id, session)
 
 
 async def channel_chat_handler(
@@ -31,32 +19,13 @@ async def channel_chat_handler(
     previous_status: str,
     session: AsyncSession,
     context: ContextTypes.DEFAULT_TYPE,
-):
-    """Добавляет и изменяет информацию в БД о доступных боту каналах."""
-    message = None
-
-    if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        user_id = await personal_chat_handler(my_chat, current_status, session)
-        current_channel_data = services.channel_parser(my_chat.chat, user_id)
-        await channel_crud.create(current_channel_data, session)
-        text = f"Бот добавлен в канал '{my_chat.chat.title}',"
-        rights_text = services.check_bot_privileges(my_chat.new_chat_member)
-        message = text + rights_text
-
-    elif current_status == previous_status:
-        text = f"У бота в канале '{my_chat.chat.title}' изменены права,"
-        rights_text = services.check_bot_privileges(my_chat.new_chat_member)
-        message = text + rights_text
-
-    channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
-
-    if current_status in [ChatMember.BANNED, ChatMember.LEFT]:
-        if channel_db:
-            await services.deactivate_channel(channel_db.id, session)
-            message = f"Бот удален из канала '{my_chat.chat.title}'"
-
-    if channel_db and channel_db.user.is_active:
-        await context.bot.send_message(chat_id=channel_db.user.account_id, text=message)
+) -> None:
+    """Изменяет данные о канале в зависимости от статуса бота в канале."""
+    channel_db = await services.check_channel_chat_status(current_status, previous_status, my_chat, session)
+    message = services.create_message(current_status, previous_status, my_chat)
+    if channel_db is None:
+        channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
+    await services.send_notify_message(channel_db, message, context)
 
 
 async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -76,7 +45,7 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await channel_chat_handler(my_chat, current_status, previous_status, session, context)
 
 
-async def posting_message_handler(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE):
+async def posting_message_handler(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Публикует вложение из сообщения пользователя в канал."""
     if message.animation:
         await context.bot.send_animation(
@@ -90,7 +59,7 @@ async def posting_message_handler(message: Message, channel_id: int, context: Co
         await context.bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
 
 
-async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Парсит фото, видео и анимацию из сообщения от пользователя."""
     get_session = get_async_session()
     session = await get_session.__anext__()
