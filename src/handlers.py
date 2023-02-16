@@ -20,7 +20,7 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             await services.check_private_chat_status(my_chat, current_status, session)
 
     if my_chat.chat.type in Chat.CHANNEL:
-        await services.check_channel_chat_status(my_chat, current_status, previous_status, session, context)
+        await services.check_channel_chat(my_chat, current_status, previous_status, session, context)
 
 
 async def posting_message_handler(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
