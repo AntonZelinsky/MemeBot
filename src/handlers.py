@@ -1,31 +1,9 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from telegram import Chat, ChatMemberUpdated, Message, Update
+from telegram import Chat, Message, Update
 from telegram.ext import ContextTypes
 
 from src import services
-from src.db.crud import channel_crud, get_async_session, user_crud
+from src.db.crud import get_async_session, user_crud
 from src.settings import DESCRIPTION
-
-
-async def personal_chat_handler(my_chat_member: ChatMemberUpdated, current_status: str, session: AsyncSession) -> None:
-    """Изменяет данные о пользователе, в зависимости от статуса приватного чата."""
-    user_id = await services.get_or_create_or_update_user(my_chat_member, session)
-    await services.check_private_chat_status(current_status, user_id, session)
-
-
-async def channel_chat_handler(
-    my_chat: ChatMemberUpdated,
-    current_status: str,
-    previous_status: str,
-    session: AsyncSession,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-    """Изменяет данные о канале в зависимости от статуса бота в канале."""
-    channel_db = await services.check_channel_chat_status(current_status, previous_status, my_chat, session)
-    message = services.create_message(current_status, previous_status, my_chat)
-    if channel_db is None:
-        channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
-    await services.send_notify_message(channel_db, message, context)
 
 
 async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -39,10 +17,10 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if my_chat.chat.type in Chat.PRIVATE:
         if current_status != previous_status:
-            await personal_chat_handler(my_chat, current_status, session)
+            await services.check_private_chat_status(my_chat, current_status, session)
 
     if my_chat.chat.type in Chat.CHANNEL:
-        await channel_chat_handler(my_chat, current_status, previous_status, session, context)
+        await services.check_channel_chat_status(my_chat, current_status, previous_status, session, context)
 
 
 async def posting_message_handler(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
