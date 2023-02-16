@@ -14,9 +14,8 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     current_status = my_chat.new_chat_member.status
     previous_status = my_chat.old_chat_member.status
 
-    if my_chat.chat.type in Chat.PRIVATE:
-        if current_status != previous_status:
-            await services.check_private_chat_status(my_chat, current_status, session)
+    if (my_chat.chat.type in Chat.PRIVATE) and (current_status != previous_status):
+        await services.check_private_chat_status(my_chat, current_status, session)
 
     if my_chat.chat.type in Chat.CHANNEL:
         await services.check_channel_chat(my_chat, current_status, previous_status, session, context)
