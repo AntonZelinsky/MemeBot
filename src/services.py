@@ -1,11 +1,12 @@
 from typing import Optional, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from telegram import ChatMember, ChatMemberUpdated
+from telegram import ChatMember, ChatMemberUpdated, Message
 from telegram.ext import ContextTypes
 
 from src.db.crud import channel_crud, user_crud
 from src.db.models import Channel, User
+from src.settings import DESCRIPTION
 
 DatabaseModel = TypeVar("DatabaseModel")
 
@@ -155,3 +156,17 @@ async def check_private_chat_status(my_chat: ChatMemberUpdated, current_status: 
         await change_activate(object=user, status=DEACTIVATE, session=session)
     elif current_status in ChatMember.MEMBER:
         await change_activate(object=user, status=ACTIVATE, session=session)
+
+
+async def posting_message(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Публикует вложение из сообщения пользователя в канал."""
+    if message.animation:
+        await context.bot.send_animation(
+            chat_id=channel_id,
+            animation=message.animation.file_id,
+            caption=DESCRIPTION,
+        )
+    elif message.photo:
+        await context.bot.send_photo(chat_id=channel_id, photo=message.photo[0].file_id, caption=DESCRIPTION)
+    else:
+        await context.bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
