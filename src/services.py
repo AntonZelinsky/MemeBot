@@ -112,7 +112,7 @@ async def check_channel_chat(
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     """Проверяет обновления из каналов."""
-    channel_db = await (my_chat, current_status, previous_status, session)
+    channel_db = await check_channel_chat_status(my_chat, current_status, previous_status, session)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, context)
 
