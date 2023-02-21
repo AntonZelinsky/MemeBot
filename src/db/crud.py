@@ -40,9 +40,9 @@ class UserCRUD(BaseCRUD):
 
     async def get_user(self, account_id: int) -> Optional[User]:
         """Возвращает объект User из БД по его account_id."""
-        user = await self._session.scalars(select(self._model).where(self._model.account_id == account_id))
+        user = await self._session.scalar(select(self._model).where(self._model.account_id == account_id))
         await self._session.close()
-        return user.first()
+        return user
 
 
 class ChannelCRUD(BaseCRUD):
@@ -51,11 +51,11 @@ class ChannelCRUD(BaseCRUD):
 
     async def get_channel(self, channel_id: int) -> Optional[Channel]:
         """Возвращает объект Channel из БД по его channel_id."""
-        channel = await self._session.scalars(
+        channel = await self._session.scalar(
             select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active == True)
         )
         await self._session.close()
-        return channel.first()
+        return channel
 
 
 user_crud = UserCRUD()
