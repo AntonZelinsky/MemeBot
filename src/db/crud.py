@@ -1,57 +1,62 @@
 from typing import Optional, TypeVar
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.db.models import Channel, User
 from src.settings import DATABASE_URL
+
+engine = create_async_engine(DATABASE_URL, echo=False)
 
 DatabaseModel = TypeVar("DatabaseModel")
 
 
 class BaseCRUD:
-    def __init__(self, model):
+    def __init__(self, model: DatabaseModel) -> None:
+        async_session = async_sessionmaker(engine, expire_on_commit=False)
         self._model = model
+        self._session = async_session()
 
-    async def create(self, new_data: DatabaseModel, session: AsyncSession):
+    async def create(self, new_data: DatabaseModel):
         """Создает объект текущей модели и возвращает его."""
-        session.add(new_data)
-        await session.commit()
-        await session.refresh(new_data)
+        self._session.add(new_data)
+        await self._session.commit()
+        await self._session.refresh(new_data)
+        await self._session.close()
         return new_data
 
-    async def update(self, object_id: int, update_data: DatabaseModel, session: AsyncSession) -> DatabaseModel:
+    async def update(self, object_id: int, update_data: DatabaseModel) -> DatabaseModel:
         """Обновляет объект текущей модели и возвращает его."""
         update_data.id = object_id
-        update_data = await session.merge(update_data)
-        await session.commit()
+        update_data = await self._session.merge(update_data)
+        await self._session.commit()
+        await self._session.close()
         return update_data
 
 
 class UserCRUD(BaseCRUD):
-    async def get_user(self, account_id: int, session: AsyncSession) -> Optional[User]:
+    def __init__(self) -> None:
+        super().__init__(User)
+
+    async def get_user(self, account_id: int) -> Optional[User]:
         """Возвращает объект User из БД по его account_id."""
-        user = await session.scalars(select(self._model).where(self._model.account_id == account_id))
+        user = await self._session.scalars(select(self._model).where(self._model.account_id == account_id))
+        await self._session.close()
         return user.first()
 
 
 class ChannelCRUD(BaseCRUD):
-    async def get_channel(self, channel_id: int, session: AsyncSession) -> Optional[Channel]:
+    def __init__(self) -> None:
+        super().__init__(Channel)
+
+    async def get_channel(self, channel_id: int) -> Optional[Channel]:
         """Возвращает объект Channel из БД по его channel_id."""
-        channel = await session.scalars(
+        channel = await self._session.scalars(
             select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active == True)
         )
+        await self._session.close()
         return channel.first()
 
 
-engine = create_async_engine(DATABASE_URL, echo=False)
-
-
-async def get_async_session() -> AsyncSession:
-    async_session = async_sessionmaker(engine, expire_on_commit=False)
-    async with async_session() as session:
-        yield session
-
-
-user_crud = UserCRUD(User)
-channel_crud = ChannelCRUD(Channel)
+user_crud = UserCRUD()
+channel_crud = ChannelCRUD()
