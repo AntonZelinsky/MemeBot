@@ -1,21 +1,21 @@
 from typing import Optional, TypeVar
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.db.models import Channel, User
 from src.settings import DATABASE_URL
 
 engine = create_async_engine(DATABASE_URL, echo=False)
+async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 DatabaseModel = TypeVar("DatabaseModel")
 
 
 class BaseCRUD:
-    def __init__(self, model: DatabaseModel) -> None:
-        async_session = async_sessionmaker(engine, expire_on_commit=False)
+    def __init__(self, model: DatabaseModel, session: AsyncSession) -> None:
         self._model = model
-        self._session = async_session()
+        self._session = session
 
     async def create(self, new_data: DatabaseModel):
         """Создает объект текущей модели и возвращает его."""
@@ -36,7 +36,7 @@ class BaseCRUD:
 
 class UserCRUD(BaseCRUD):
     def __init__(self) -> None:
-        super().__init__(User)
+        super().__init__(User, async_session())
 
     async def get_user(self, account_id: int) -> Optional[User]:
         """Возвращает объект User из БД по его account_id."""
@@ -47,7 +47,7 @@ class UserCRUD(BaseCRUD):
 
 class ChannelCRUD(BaseCRUD):
     def __init__(self) -> None:
-        super().__init__(Channel)
+        super().__init__(Channel, async_session())
 
     async def get_channel(self, channel_id: int) -> Optional[Channel]:
         """Возвращает объект Channel из БД по его channel_id."""
