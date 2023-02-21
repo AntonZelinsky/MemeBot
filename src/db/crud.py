@@ -31,17 +31,17 @@ class BaseCRUD:
 class UserCRUD(BaseCRUD):
     async def get_user(self, account_id: int, session: AsyncSession) -> Optional[User]:
         """Возвращает объект User из БД по его account_id."""
-        user = await session.execute(select(self._model).where(self._model.account_id == account_id))
-        return user.scalars().first()
+        user = await session.scalars(select(self._model).where(self._model.account_id == account_id))
+        return user.first()
 
 
 class ChannelCRUD(BaseCRUD):
     async def get_channel(self, channel_id: int, session: AsyncSession) -> Optional[Channel]:
         """Возвращает объект Channel из БД по его channel_id."""
-        channel = await session.execute(
+        channel = await session.scalars(
             select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active == True)
         )
-        return channel.scalars().first()
+        return channel.first()
 
 
 engine = create_async_engine(DATABASE_URL, echo=False)
