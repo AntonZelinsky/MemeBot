@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import BIGINT, ForeignKey, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -42,7 +42,7 @@ class Channel(Base):
     """Модель канала."""
 
     __tablename__ = "channel"
-    channel_id: Mapped[int]
+    channel_id: Mapped[int] = mapped_column(BIGINT)
     title: Mapped[str]
     username: Mapped[Optional[str]]
     invited_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
