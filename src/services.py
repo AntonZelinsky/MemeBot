@@ -1,6 +1,5 @@
 from typing import Optional, TypeVar
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from telegram import ChatMember, ChatMemberUpdated, Message
 from telegram.ext import ContextTypes
 
@@ -38,13 +37,13 @@ def channel_parser(my_chat, user_id) -> DatabaseModel:
     return channel_data
 
 
-async def change_activate(object: DatabaseModel, status: bool, session: AsyncSession) -> None:
+async def change_activate(object: DatabaseModel, status: bool) -> None:
     """Изменяет статус is_active у объекта."""
     object.is_active = status
     if isinstance(object, User):
-        await user_crud.update(object.id, object, session)
+        await user_crud.update(object.id, object)
     elif isinstance(object, Channel):
-        await channel_crud.update(object.id, object, session)
+        await channel_crud.update(object.id, object)
 
 
 def check_bot_privileges(current_channel_chat: ChatMember) -> str:
@@ -57,10 +56,10 @@ def check_bot_privileges(current_channel_chat: ChatMember) -> str:
     return text
 
 
-async def create_channel(my_chat, user_id, session) -> DatabaseModel:
+async def create_channel(my_chat, user_id) -> DatabaseModel:
     """Создает канал по данным из обновления."""
     current_channel_data = channel_parser(my_chat, user_id)
-    channel = await channel_crud.create(current_channel_data, session)
+    channel = await channel_crud.create(current_channel_data)
     return channel
 
 
@@ -89,18 +88,17 @@ async def check_channel_chat_status(
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
-    session: AsyncSession,
 ) -> DatabaseModel:
     """Проверяет статус чата в канале и обновляет информации о канале в БД."""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        user = await get_or_create_or_update_user(my_chat, session)
-        channel_db = await create_channel(my_chat, user.id, session)
+        user = await get_or_create_or_update_user(my_chat)
+        channel_db = await create_channel(my_chat, user.id)
     elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
-        channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
+        channel_db = await channel_crud.get_channel(my_chat.chat.id)
         if channel_db:
-            await change_activate(object=channel_db, status=DEACTIVATE, session=session)
+            await change_activate(object=channel_db, status=DEACTIVATE)
     else:
-        channel_db = await channel_crud.get_channel(my_chat.chat.id, session)
+        channel_db = await channel_crud.get_channel(my_chat.chat.id)
     return channel_db
 
 
@@ -108,54 +106,53 @@ async def check_channel_chat(
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
-    session: AsyncSession,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     """Проверяет обновления из каналов."""
-    channel_db = await check_channel_chat_status(my_chat, current_status, previous_status, session)
+    channel_db = await check_channel_chat_status(my_chat, current_status, previous_status)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, context)
 
 
-async def get_user(my_chat: ChatMemberUpdated, session: AsyncSession) -> Optional[DatabaseModel]:
+async def get_user(my_chat: ChatMemberUpdated) -> Optional[DatabaseModel]:
     """Получает объект User из базы по его account_id из обновления."""
     account_id = my_chat.from_user.id
-    user = await user_crud.get_user(account_id, session)
+    user = await user_crud.get_user(account_id)
     return user
 
 
-async def update_user(my_chat: ChatMemberUpdated, user_id: int, session: AsyncSession) -> DatabaseModel:
+async def update_user(my_chat: ChatMemberUpdated, user_id: int) -> DatabaseModel:
     """Обновляет данные пользователя."""
     current_user_data = user_parser(my_chat)
-    user = await user_crud.update(user_id, current_user_data, session)
+    user = await user_crud.update(user_id, current_user_data)
     return user
 
 
-async def create_user(my_chat: ChatMemberUpdated, session: AsyncSession) -> DatabaseModel:
+async def create_user(my_chat: ChatMemberUpdated) -> DatabaseModel:
     """Создает пользователя по данным из обновления."""
     current_user_data = user_parser(my_chat)
-    user = await user_crud.create(current_user_data, session)
+    user = await user_crud.create(current_user_data)
     return user
 
 
-async def get_or_create_or_update_user(my_chat: ChatMemberUpdated, session: AsyncSession) -> DatabaseModel:
+async def get_or_create_or_update_user(my_chat: ChatMemberUpdated) -> DatabaseModel:
     """Получает, обновляет, либо создает пользователя."""
-    user = await get_user(my_chat, session)
+    user = await get_user(my_chat)
 
     if user:
-        user = await update_user(my_chat, user.id, session)
+        user = await update_user(my_chat, user.id)
     else:
-        user = await create_user(my_chat, session)
+        user = await create_user(my_chat)
     return user
 
 
-async def check_private_chat_status(my_chat: ChatMemberUpdated, current_status: str, session: AsyncSession) -> None:
+async def check_private_chat_status(my_chat: ChatMemberUpdated, current_status: str) -> None:
     """Проверяет статус приватного чата."""
-    user = await get_or_create_or_update_user(my_chat, session)
+    user = await get_or_create_or_update_user(my_chat)
     if current_status in ChatMember.BANNED:
-        await change_activate(object=user, status=DEACTIVATE, session=session)
+        await change_activate(object=user, status=DEACTIVATE)
     elif current_status in ChatMember.MEMBER:
-        await change_activate(object=user, status=ACTIVATE, session=session)
+        await change_activate(object=user, status=ACTIVATE)
 
 
 async def posting_message(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
