@@ -14,7 +14,7 @@ DEACTIVATE = False
 
 
 def user_parser(my_chat: ChatMemberUpdated) -> DatabaseModel:
-    """Парсит данные с чата в модель User."""
+    """Парсит данные пользователя из update приватного чата в модель User."""
     telegram_user = my_chat.from_user
     user_data = User(
         account_id=telegram_user.id,
@@ -26,7 +26,7 @@ def user_parser(my_chat: ChatMemberUpdated) -> DatabaseModel:
 
 
 def channel_parser(my_chat, user_id) -> DatabaseModel:
-    """Парсит данные с чата в модель Channel."""
+    """Парсит данные канала из update чата канала в модель Channel."""
     telegram_channel = my_chat.chat
     channel_data = Channel(
         channel_id=telegram_channel.id,
@@ -46,8 +46,8 @@ async def change_activate(object: DatabaseModel, status: bool) -> None:
         await channel_crud.update(object.id, object)
 
 
-def check_bot_privileges(current_channel_chat: ChatMember) -> str:
-    """Проверяет у бота доступ к постингу сообщений в канале."""
+def check_bot_posting(current_channel_chat: ChatMember) -> str:
+    """Проверяет у бота доступ к публикации сообщений в канале."""
     text = "отправки сообщений в группу!"
     if current_channel_chat.can_post_messages is True:
         text = " есть права для " + text
@@ -57,7 +57,7 @@ def check_bot_privileges(current_channel_chat: ChatMember) -> str:
 
 
 async def create_channel(my_chat, user_id) -> DatabaseModel:
-    """Создает канал по данным из обновления."""
+    """Создает канал по данным из update."""
     current_channel_data = channel_parser(my_chat, user_id)
     channel = await channel_crud.create(current_channel_data)
     return channel
@@ -73,7 +73,7 @@ def create_message(current_status, previous_status, my_chat) -> str:
     elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
         message = f"Бот удален из канала '{my_chat.chat.title}'"
         return message
-    rights_text = check_bot_privileges(my_chat.new_chat_member)
+    rights_text = check_bot_posting(my_chat.new_chat_member)
     message = text + rights_text
     return message
 
@@ -89,7 +89,7 @@ async def check_channel_chat_status(
     current_status: str,
     previous_status: str,
 ) -> DatabaseModel:
-    """Проверяет статус чата в канале и обновляет информации о канале в БД."""
+    """Проверяет статус бота в чате канала."""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
         user = await get_or_create_or_update_user(my_chat)
         channel_db = await create_channel(my_chat, user.id)
@@ -108,35 +108,35 @@ async def check_channel_chat(
     previous_status: str,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """Проверяет обновления из каналов."""
+    """Проверяет update чата каналов."""
     channel_db = await check_channel_chat_status(my_chat, current_status, previous_status)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, context)
 
 
 async def get_user(my_chat: ChatMemberUpdated) -> Optional[DatabaseModel]:
-    """Получает объект User из базы по его account_id из обновления."""
+    """Получает объект User из базы по его account_id."""
     account_id = my_chat.from_user.id
     user = await user_crud.get_user(account_id)
     return user
 
 
 async def update_user(my_chat: ChatMemberUpdated, user_id: int) -> DatabaseModel:
-    """Обновляет данные пользователя."""
+    """Обновляет данные пользователя из update приватного чата."""
     current_user_data = user_parser(my_chat)
     user = await user_crud.update(user_id, current_user_data)
     return user
 
 
 async def create_user(my_chat: ChatMemberUpdated) -> DatabaseModel:
-    """Создает пользователя по данным из обновления."""
+    """Создает пользователя по данным из update приватного чата."""
     current_user_data = user_parser(my_chat)
     user = await user_crud.create(current_user_data)
     return user
 
 
 async def get_or_create_or_update_user(my_chat: ChatMemberUpdated) -> DatabaseModel:
-    """Получает, обновляет, либо создает пользователя."""
+    """Возвращает текущего пользователя из БД, предварительно создав либо обновив о нем информацию."""
     user = await get_user(my_chat)
 
     if user:
@@ -156,7 +156,7 @@ async def check_private_chat_status(my_chat: ChatMemberUpdated, current_status: 
 
 
 async def posting_message(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Публикует вложение из сообщения пользователя в канал."""
+    """Публикует вложение из сообщения в канал пользователя."""
     if message.animation:
         await context.bot.send_animation(
             chat_id=channel_id,

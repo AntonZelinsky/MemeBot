@@ -6,7 +6,7 @@ from src.db.crud import user_crud
 
 
 async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Проверяет чаты бота."""
+    """Обрабатывает обновления чатов Telegram."""
     my_chat = update.my_chat_member
     current_status = my_chat.new_chat_member.status
     previous_status = my_chat.old_chat_member.status
@@ -19,7 +19,7 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Парсит фото, видео и анимацию из сообщения от пользователя."""
+    """Парсит фото, видео и анимацию из полученного сообщения."""
     user_db = await user_crud.get_user(update.effective_user.id)
     for channel in user_db.channels:
         if channel and channel.is_active is True:
