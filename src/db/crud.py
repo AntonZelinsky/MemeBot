@@ -17,7 +17,7 @@ class BaseCRUD:
         self._model = model
         self._session = session
 
-    async def create(self, new_data: DatabaseModel):
+    async def create(self, new_data: DatabaseModel) -> DatabaseModel:
         """Создает объект текущей модели и возвращает его."""
         self._session.add(new_data)
         await self._session.commit()
