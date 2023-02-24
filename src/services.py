@@ -1,6 +1,7 @@
 from typing import Optional, TypeVar
 
 from telegram import ChatMember, ChatMemberUpdated, Message
+from telegram import User as effective_user
 from telegram.ext import ContextTypes
 
 from src.db.crud import channel_crud, user_crud
@@ -13,14 +14,13 @@ ACTIVATE = True
 DEACTIVATE = False
 
 
-def user_parser(my_chat: ChatMemberUpdated) -> DatabaseModel:
+def user_parser(effective_user: effective_user) -> DatabaseModel:
     """Парсит данные пользователя из update приватного чата в модель User."""
-    telegram_user = my_chat.from_user
     user_data = User(
-        account_id=telegram_user.id,
-        first_name=telegram_user.first_name,
-        last_name=telegram_user.last_name or None,
-        username=telegram_user.username or None,
+        account_id=effective_user.id,
+        first_name=effective_user.first_name,
+        last_name=effective_user.last_name or None,
+        username=effective_user.username or None,
     )
     return user_data
 
@@ -85,13 +85,14 @@ async def send_notify_message(channel_db, message, context) -> None:
 
 
 async def check_channel_chat_status(
+    effective_user: effective_user,
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
 ) -> DatabaseModel:
     """Проверяет статус бота в чате канала."""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        user = await get_or_create_or_update_user(my_chat)
+        user = await get_or_create_or_update_user(effective_user)
         channel_db = await create_channel(my_chat, user.id)
     elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
         channel_db = await channel_crud.get_channel(my_chat.chat.id)
@@ -103,52 +104,53 @@ async def check_channel_chat_status(
 
 
 async def check_channel_chat(
+    effective_user: effective_user,
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     """Проверяет update чата каналов."""
-    channel_db = await check_channel_chat_status(my_chat, current_status, previous_status)
+    channel_db = await check_channel_chat_status(effective_user, my_chat, current_status, previous_status)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, context)
 
 
-async def get_user(my_chat: ChatMemberUpdated) -> Optional[DatabaseModel]:
+async def get_user(effective_user: effective_user) -> Optional[DatabaseModel]:
     """Получает объект User из базы по его account_id."""
-    account_id = my_chat.from_user.id
+    account_id = effective_user.id
     user = await user_crud.get_user(account_id)
     return user
 
 
-async def update_user(my_chat: ChatMemberUpdated, user_id: int) -> DatabaseModel:
+async def update_user(effective_user: effective_user, user_id: int) -> DatabaseModel:
     """Обновляет данные пользователя из update приватного чата."""
-    current_user_data = user_parser(my_chat)
+    current_user_data = user_parser(effective_user)
     user = await user_crud.update(user_id, current_user_data)
     return user
 
 
-async def create_user(my_chat: ChatMemberUpdated) -> DatabaseModel:
+async def create_user(effective_user: effective_user) -> DatabaseModel:
     """Создает пользователя по данным из update приватного чата."""
-    current_user_data = user_parser(my_chat)
+    current_user_data = user_parser(effective_user)
     user = await user_crud.create(current_user_data)
     return user
 
 
-async def get_or_create_or_update_user(my_chat: ChatMemberUpdated) -> DatabaseModel:
+async def get_or_create_or_update_user(effective_user: effective_user) -> DatabaseModel:
     """Возвращает текущего пользователя из БД, предварительно создав либо обновив о нем информацию."""
-    user = await get_user(my_chat)
+    user = await get_user(effective_user)
 
     if user:
-        user = await update_user(my_chat, user.id)
+        user = await update_user(effective_user, user.id)
     else:
-        user = await create_user(my_chat)
+        user = await create_user(effective_user)
     return user
 
 
-async def check_private_chat_status(my_chat: ChatMemberUpdated, current_status: str) -> None:
+async def check_private_chat_status(effective_user: effective_user, current_status: str) -> None:
     """Проверяет статус приватного чата."""
-    user = await get_or_create_or_update_user(my_chat)
+    user = await get_or_create_or_update_user(effective_user)
     if current_status in ChatMember.BANNED:
         await change_activate(object=user, status=DEACTIVATE)
     elif current_status in ChatMember.MEMBER:
