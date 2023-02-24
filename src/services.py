@@ -4,7 +4,7 @@ from telegram import ChatMember, ChatMemberUpdated, Message
 from telegram import User as effective_user
 from telegram.ext import ContextTypes
 
-from src.db.crud import channel_crud, user_crud
+from src.db.base import channel_base, user_base
 from src.db.models import Channel, User
 from src.settings import DESCRIPTION
 
@@ -41,9 +41,9 @@ async def change_activate(object: DatabaseModel, status: bool) -> None:
     """Изменяет статус is_active у объекта."""
     object.is_active = status
     if isinstance(object, User):
-        await user_crud.update(object.id, object)
+        await user_base.update(object.id, object)
     elif isinstance(object, Channel):
-        await channel_crud.update(object.id, object)
+        await channel_base.update(object.id, object)
 
 
 def check_bot_posting(current_channel_chat: ChatMember) -> str:
@@ -59,7 +59,7 @@ def check_bot_posting(current_channel_chat: ChatMember) -> str:
 async def create_channel(my_chat, user_id) -> DatabaseModel:
     """Создает канал по данным из update."""
     current_channel_data = channel_parser(my_chat, user_id)
-    channel = await channel_crud.create(current_channel_data)
+    channel = await channel_base.create(current_channel_data)
     return channel
 
 
@@ -95,11 +95,11 @@ async def check_channel_chat_status(
         user = await get_or_create_or_update_user(effective_user)
         channel_db = await create_channel(my_chat, user.id)
     elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
-        channel_db = await channel_crud.get_channel(my_chat.chat.id)
+        channel_db = await channel_base.get_channel(my_chat.chat.id)
         if channel_db:
             await change_activate(object=channel_db, status=DEACTIVATE)
     else:
-        channel_db = await channel_crud.get_channel(my_chat.chat.id)
+        channel_db = await channel_base.get_channel(my_chat.chat.id)
     return channel_db
 
 
@@ -119,21 +119,21 @@ async def check_channel_chat(
 async def get_user(effective_user: effective_user) -> Optional[DatabaseModel]:
     """Получает объект User из базы по его account_id."""
     account_id = effective_user.id
-    user = await user_crud.get_user(account_id)
+    user = await user_base.get_user(account_id)
     return user
 
 
 async def update_user(effective_user: effective_user, user_id: int) -> DatabaseModel:
     """Обновляет данные пользователя из update приватного чата."""
     current_user_data = user_parser(effective_user)
-    user = await user_crud.update(user_id, current_user_data)
+    user = await user_base.update(user_id, current_user_data)
     return user
 
 
 async def create_user(effective_user: effective_user) -> DatabaseModel:
     """Создает пользователя по данным из update приватного чата."""
     current_user_data = user_parser(effective_user)
-    user = await user_crud.create(current_user_data)
+    user = await user_base.create(current_user_data)
     return user
 
 
