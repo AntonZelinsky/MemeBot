@@ -1,8 +1,7 @@
 from typing import Optional, TypeVar
 
-from telegram import ChatMember, ChatMemberUpdated, Message
+from telegram import Bot, ChatMember, ChatMemberUpdated, Message
 from telegram import User as effective_user
-from telegram.ext import ContextTypes
 
 from src.db.base import channel_base, user_base
 from src.db.models import Channel, User
@@ -56,14 +55,14 @@ def check_bot_posting(current_channel_chat: ChatMember) -> str:
     return text
 
 
-async def create_channel(my_chat, user_id) -> DatabaseModel:
+async def create_channel(my_chat: ChatMemberUpdated, user_id: int) -> DatabaseModel:
     """Создает канал по данным из update."""
     current_channel_data = channel_parser(my_chat, user_id)
     channel = await channel_base.create(current_channel_data)
     return channel
 
 
-def create_message(current_status, previous_status, my_chat) -> str:
+def create_message(current_status: str, previous_status: str, my_chat) -> str:
     """Создает сообщение - уведомление о статусе бота в канале."""
     text = ""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
@@ -78,10 +77,10 @@ def create_message(current_status, previous_status, my_chat) -> str:
     return message
 
 
-async def send_notify_message(channel_db, message, context) -> None:
+async def send_notify_message(channel_db: DatabaseModel, message: str, telegram_bot: Bot) -> None:
     """Отправляет сообщение об изменении статуса бота в канале пользователю, который его добавил в канал."""
     if channel_db and channel_db.user.is_active:
-        await context.bot.send_message(chat_id=channel_db.user.account_id, text=message)
+        await telegram_bot.send_message(chat_id=channel_db.user.account_id, text=message)
 
 
 async def check_channel_chat_status(
@@ -108,12 +107,12 @@ async def check_channel_chat(
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
-    context: ContextTypes.DEFAULT_TYPE,
+    telegram_bot: Bot,
 ) -> None:
     """Проверяет update чата каналов."""
     channel_db = await check_channel_chat_status(effective_user, my_chat, current_status, previous_status)
     message = create_message(current_status, previous_status, my_chat)
-    await send_notify_message(channel_db, message, context)
+    await send_notify_message(channel_db, message, telegram_bot)
 
 
 async def get_user(effective_user: effective_user) -> Optional[DatabaseModel]:
@@ -157,15 +156,15 @@ async def check_private_chat_status(effective_user: effective_user, current_stat
         await change_activate(object=user, status=ACTIVATE)
 
 
-async def posting_message(message: Message, channel_id: int, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def posting_message(message: Message, channel_id: int, telegram_bot: Bot) -> None:
     """Публикует вложение из сообщения в канал пользователя."""
     if message.animation:
-        await context.bot.send_animation(
+        await telegram_bot.send_animation(
             chat_id=channel_id,
             animation=message.animation.file_id,
             caption=DESCRIPTION,
         )
     elif message.photo:
-        await context.bot.send_photo(chat_id=channel_id, photo=message.photo[0].file_id, caption=DESCRIPTION)
+        await telegram_bot.send_photo(chat_id=channel_id, photo=message.photo[0].file_id, caption=DESCRIPTION)
     else:
-        await context.bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
+        await telegram_bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
