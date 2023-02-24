@@ -1,7 +1,7 @@
 from typing import Optional, TypeVar
 
 from telegram import Bot, ChatMember, ChatMemberUpdated, Message
-from telegram import User as effective_user
+from telegram import User as TelegramUser
 
 from src.db.base import channel_base, user_base
 from src.db.models import Channel, User
@@ -13,13 +13,13 @@ ACTIVATE = True
 DEACTIVATE = False
 
 
-def user_parser(effective_user: effective_user) -> DatabaseModel:
+def user_parser(telegram_user: TelegramUser) -> DatabaseModel:
     """Парсит данные пользователя из update приватного чата в модель User."""
     user_data = User(
-        account_id=effective_user.id,
-        first_name=effective_user.first_name,
-        last_name=effective_user.last_name or None,
-        username=effective_user.username or None,
+        account_id=telegram_user.id,
+        first_name=telegram_user.first_name,
+        last_name=telegram_user.last_name or None,
+        username=telegram_user.username or None,
     )
     return user_data
 
@@ -36,13 +36,13 @@ def channel_parser(my_chat, user_id) -> DatabaseModel:
     return channel_data
 
 
-async def change_activate(object: DatabaseModel, status: bool) -> None:
+async def change_activate(instance: DatabaseModel, status: bool) -> None:
     """Изменяет статус is_active у объекта."""
-    object.is_active = status
-    if isinstance(object, User):
-        await user_base.update(object.id, object)
-    elif isinstance(object, Channel):
-        await channel_base.update(object.id, object)
+    instance.is_active = status
+    if isinstance(instance, User):
+        await user_base.update(instance.id, instance)
+    elif isinstance(instance, Channel):
+        await channel_base.update(instance.id, instance)
 
 
 def check_bot_posting(current_channel_chat: ChatMember) -> str:
@@ -84,76 +84,76 @@ async def send_notify_message(channel_db: DatabaseModel, message: str, telegram_
 
 
 async def check_channel_chat_status(
-    effective_user: effective_user,
+    telegram_user: TelegramUser,
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
 ) -> DatabaseModel:
     """Проверяет статус бота в чате канала."""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        user = await get_or_create_or_update_user(effective_user)
+        user = await get_or_create_or_update_user(telegram_user)
         channel_db = await create_channel(my_chat, user.id)
     elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
         channel_db = await channel_base.get_channel(my_chat.chat.id)
         if channel_db:
-            await change_activate(object=channel_db, status=DEACTIVATE)
+            await change_activate(instance=channel_db, status=DEACTIVATE)
     else:
         channel_db = await channel_base.get_channel(my_chat.chat.id)
     return channel_db
 
 
 async def check_channel_chat(
-    effective_user: effective_user,
+    telegram_user: TelegramUser,
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
     telegram_bot: Bot,
 ) -> None:
     """Проверяет update чата каналов."""
-    channel_db = await check_channel_chat_status(effective_user, my_chat, current_status, previous_status)
+    channel_db = await check_channel_chat_status(telegram_user, my_chat, current_status, previous_status)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, telegram_bot)
 
 
-async def get_user(effective_user: effective_user) -> Optional[DatabaseModel]:
+async def get_user(telegram_user: TelegramUser) -> Optional[DatabaseModel]:
     """Получает объект User из базы по его account_id."""
-    account_id = effective_user.id
+    account_id = telegram_user.id
     user = await user_base.get_user(account_id)
     return user
 
 
-async def update_user(effective_user: effective_user, user_id: int) -> DatabaseModel:
+async def update_user(telegram_user: TelegramUser, user_id: int) -> DatabaseModel:
     """Обновляет данные пользователя из update приватного чата."""
-    current_user_data = user_parser(effective_user)
+    current_user_data = user_parser(telegram_user)
     user = await user_base.update(user_id, current_user_data)
     return user
 
 
-async def create_user(effective_user: effective_user) -> DatabaseModel:
+async def create_user(telegram_user: TelegramUser) -> DatabaseModel:
     """Создает пользователя по данным из update приватного чата."""
-    current_user_data = user_parser(effective_user)
+    current_user_data = user_parser(telegram_user)
     user = await user_base.create(current_user_data)
     return user
 
 
-async def get_or_create_or_update_user(effective_user: effective_user) -> DatabaseModel:
+async def get_or_create_or_update_user(telegram_user: TelegramUser) -> DatabaseModel:
     """Возвращает текущего пользователя из БД, предварительно создав либо обновив о нем информацию."""
-    user = await get_user(effective_user)
+    user = await get_user(telegram_user)
 
     if user:
-        user = await update_user(effective_user, user.id)
+        user = await update_user(telegram_user, user.id)
     else:
-        user = await create_user(effective_user)
+        user = await create_user(telegram_user)
     return user
 
 
-async def check_private_chat_status(effective_user: effective_user, current_status: str) -> None:
+async def check_private_chat_status(telegram_user: TelegramUser, current_status: str) -> None:
     """Проверяет статус приватного чата."""
-    user = await get_or_create_or_update_user(effective_user)
+    user = await get_or_create_or_update_user(telegram_user)
     if current_status in ChatMember.BANNED:
-        await change_activate(object=user, status=DEACTIVATE)
+        await change_activate(instance=user, status=DEACTIVATE)
     elif current_status in ChatMember.MEMBER:
-        await change_activate(object=user, status=ACTIVATE)
+        await change_activate(instance=user, status=ACTIVATE)
 
 
 async def posting_message(message: Message, channel_id: int, telegram_bot: Bot) -> None:
