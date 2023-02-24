@@ -62,7 +62,7 @@ async def create_channel(my_chat: ChatMemberUpdated, user_id: int) -> DatabaseMo
     return channel
 
 
-def create_message(current_status: str, previous_status: str, my_chat) -> str:
+def create_message(current_status: str, previous_status: str, my_chat: ChatMemberUpdated) -> str:
     """Создает сообщение - уведомление о статусе бота в канале."""
     text = ""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
