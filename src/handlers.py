@@ -7,15 +7,15 @@ from src import services
 async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает обновления чатов Telegram."""
     my_chat = update.my_chat_member
-    effective_user = update.effective_user
+    telegram_user = update.effective_user
     current_status = my_chat.new_chat_member.status
     previous_status = my_chat.old_chat_member.status
 
     if (my_chat.chat.type in Chat.PRIVATE) and (current_status != previous_status):
-        await services.check_private_chat_status(effective_user, current_status)
+        await services.check_private_chat_status(telegram_user, current_status)
 
     if my_chat.chat.type in Chat.CHANNEL:
-        await services.check_channel_chat(effective_user, my_chat, current_status, previous_status, context.bot)
+        await services.check_channel_chat(telegram_user, my_chat, current_status, previous_status, context.bot)
 
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
