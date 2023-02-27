@@ -1,6 +1,7 @@
 from telegram import Chat, Update
 from telegram.ext import ContextTypes
 
+from db import base
 from src import services
 
 
@@ -20,7 +21,9 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Парсит фото, видео и анимацию из полученного сообщения."""
-    user_db = await services.get_or_create_or_update_user(update.effective_user)
+    user_db = await base.user_base.get_user(update.effective_user.id)
+    if user_db is None:
+        return
     for channel in user_db.channels:
         if channel and channel.is_active is True:
             channel_id = channel.channel_id
