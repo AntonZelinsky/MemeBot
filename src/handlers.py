@@ -1,8 +1,8 @@
 from telegram import Chat, Update
 from telegram.ext import ContextTypes
 
-from db import base
 from src import services
+from src.db import base
 
 
 async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
