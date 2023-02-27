@@ -1,5 +1,4 @@
-import abc
-from typing import Optional, TypeVar
+from typing import Generic, Optional, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -10,12 +9,11 @@ from src.settings import DATABASE_URL
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-
 DatabaseModel = TypeVar("DatabaseModel")
 
 
-class AbstractBase(abc.ABC):
-    """Абстрактный класс."""
+class Base(Generic[DatabaseModel]):
+    """Создает и обновляет объект в БД."""
 
     def __init__(self, model: DatabaseModel, session: AsyncSession) -> None:
         self._model = model
@@ -38,7 +36,7 @@ class AbstractBase(abc.ABC):
         return update_data
 
 
-class UserBase(AbstractBase):
+class UserBase(Base[DatabaseModel]):
     """Класс для работы с моделью User в БД."""
 
     def __init__(self) -> None:
@@ -51,7 +49,7 @@ class UserBase(AbstractBase):
         return user
 
 
-class ChannelBase(AbstractBase):
+class ChannelBase(Base[DatabaseModel]):
     """Класс для работы с моделью Channel в БД."""
 
     def __init__(self) -> None:
@@ -66,5 +64,5 @@ class ChannelBase(AbstractBase):
         return channel
 
 
-user_base = UserBase()
-channel_base = ChannelBase()
+user_base = UserBase[User]()
+channel_base = ChannelBase[Channel]()
