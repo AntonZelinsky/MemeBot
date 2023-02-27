@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from telegram import Bot, ChatMember, ChatMemberUpdated, Message
 from telegram import User as TelegramUser
@@ -115,13 +115,6 @@ async def check_channel_chat(
     await send_notify_message(channel_db, message, telegram_bot)
 
 
-async def get_user(telegram_user: TelegramUser) -> Optional[DatabaseModel]:
-    """Получает объект User из базы по его account_id."""
-    account_id = telegram_user.id
-    user = await user_base.get_user(account_id)
-    return user
-
-
 async def update_user(telegram_user: TelegramUser, user_id: int) -> DatabaseModel:
     """Обновляет данные пользователя из update приватного чата."""
     current_user_data = user_parser(telegram_user)
@@ -138,7 +131,7 @@ async def create_user(telegram_user: TelegramUser) -> DatabaseModel:
 
 async def get_or_create_or_update_user(telegram_user: TelegramUser) -> DatabaseModel:
     """Возвращает текущего пользователя из БД, предварительно создав либо обновив о нем информацию."""
-    user = await get_user(telegram_user)
+    user = await user_base.get_user(telegram_user.id)
 
     if user:
         user = await update_user(telegram_user, user.id)
