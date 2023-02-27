@@ -58,7 +58,7 @@ class ChannelBase(Base[DatabaseModel]):
     async def get_channel(self, channel_id: int) -> Optional[Channel]:
         """Возвращает объект Channel из БД по его channel_id."""
         channel = await self._session.scalar(
-            select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active == True)
+            select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active)
         )
         await self._session.close()
         return channel
