@@ -21,7 +21,7 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Парсит фото, видео и анимацию из полученного сообщения."""
-    user_db = await base.user_base.get_user(update.effective_user.id)
+    user_db = await base.user_manager.get_user(update.effective_user.id)
     if user_db is None:
         return
     for channel in user_db.channels:

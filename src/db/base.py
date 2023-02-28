@@ -60,5 +60,5 @@ class ChannelManager(BaseManager):
         return channel
 
 
-user_base = UserManager()
-channel_base = ChannelManager()
+user_manager = UserManager()
+channel_manager = ChannelManager()
