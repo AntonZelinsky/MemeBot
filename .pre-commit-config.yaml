@@ -1,9 +1,9 @@
 repos:
 
--   repo: https://github.com/asottile/add-trailing-comma
-    rev: v2.4.0
-    hooks:
-    -   id: add-trailing-comma
+- repo: https://github.com/asottile/add-trailing-comma
+  rev: v2.4.0
+  hooks:
+    - id: add-trailing-comma
 
 - repo: https://github.com/psf/black
   rev: 23.1.0
@@ -26,9 +26,8 @@ repos:
     - id: isort
       args: [--settings, setup.cfg]
 
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.0.1
-    hooks:
-    -   id: mypy
-        additional_dependencies: [types-all]
-
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.0.1
+  hooks:
+    - id: mypy
+      additional_dependencies: [types-all]
