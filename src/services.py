@@ -1,5 +1,3 @@
-from typing import TypeVar
-
 from telegram import Bot, ChatMember, ChatMemberUpdated, Message
 from telegram import User as TelegramUser
 
@@ -7,14 +5,12 @@ from src.db.base import channel_base, user_base
 from src.db.models import Channel, User
 from src.settings import DESCRIPTION
 
-DatabaseModel = TypeVar("DatabaseModel")
-
 ACTIVATE = True
 DEACTIVATE = False
 
 
-def user_parser(telegram_user: TelegramUser) -> DatabaseModel:
-    """Парсит данные пользователя из update приватного чата в модель User."""
+def user_parser(telegram_user: TelegramUser) -> User:
+    """Парсит данные пользователя из update в модель User."""
     user_data = User(
         account_id=telegram_user.id,
         first_name=telegram_user.first_name,
@@ -24,8 +20,8 @@ def user_parser(telegram_user: TelegramUser) -> DatabaseModel:
     return user_data
 
 
-def channel_parser(my_chat, user_id) -> DatabaseModel:
-    """Парсит данные канала из update чата канала в модель Channel."""
+def channel_parser(my_chat: ChatMemberUpdated, user_id: int) -> Channel:
+    """Парсит данные канала из update в модель Channel."""
     telegram_channel = my_chat.chat
     channel_data = Channel(
         channel_id=telegram_channel.id,
@@ -36,8 +32,8 @@ def channel_parser(my_chat, user_id) -> DatabaseModel:
     return channel_data
 
 
-async def change_activate(instance: DatabaseModel, status: bool) -> None:
-    """Изменяет статус is_active у объекта."""
+async def change_activate(instance, status: bool) -> None:
+    """Изменяет статус is_active у instance."""
     instance.is_active = status
     if isinstance(instance, User):
         await user_base.update(instance.id, instance)
@@ -55,7 +51,7 @@ def check_bot_posting(current_channel_chat: ChatMember) -> str:
     return text
 
 
-async def create_channel(my_chat: ChatMemberUpdated, user_id: int) -> DatabaseModel:
+async def create_channel(my_chat: ChatMemberUpdated, user_id: int) -> Channel:
     """Создает канал по данным из update."""
     current_channel_data = channel_parser(my_chat, user_id)
     channel = await channel_base.create(current_channel_data)
@@ -77,7 +73,7 @@ def create_message(current_status: str, previous_status: str, my_chat: ChatMembe
     return message
 
 
-async def send_notify_message(channel_db: DatabaseModel, message: str, telegram_bot: Bot) -> None:
+async def send_notify_message(channel_db: Channel, message: str, telegram_bot: Bot) -> None:
     """Отправляет сообщение об изменении статуса бота в канале пользователю, который его добавил в канал."""
     if channel_db and channel_db.user.is_active:
         await telegram_bot.send_message(chat_id=channel_db.user.account_id, text=message)
@@ -88,7 +84,7 @@ async def check_channel_chat_status(
     my_chat: ChatMemberUpdated,
     current_status: str,
     previous_status: str,
-) -> DatabaseModel:
+) -> Channel:
     """Проверяет статус бота в чате канала."""
     if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
         user = await get_or_create_or_update_user(telegram_user)
@@ -109,28 +105,32 @@ async def check_channel_chat(
     previous_status: str,
     telegram_bot: Bot,
 ) -> None:
-    """Проверяет update чата каналов."""
+    """Сканирует изменения чата каналов из update."""
     channel_db = await check_channel_chat_status(telegram_user, my_chat, current_status, previous_status)
     message = create_message(current_status, previous_status, my_chat)
     await send_notify_message(channel_db, message, telegram_bot)
 
 
-async def update_user(telegram_user: TelegramUser, user_id: int) -> DatabaseModel:
-    """Обновляет данные пользователя из update приватного чата."""
+async def update_user(telegram_user: TelegramUser, user_id: int) -> User:
+    """Обновляет данные пользователя из update."""
     current_user_data = user_parser(telegram_user)
     user = await user_base.update(user_id, current_user_data)
     return user
 
 
-async def create_user(telegram_user: TelegramUser) -> DatabaseModel:
-    """Создает пользователя по данным из update приватного чата."""
+async def create_user(telegram_user: TelegramUser) -> User:
+    """Создает пользователя по данным из update."""
     current_user_data = user_parser(telegram_user)
     user = await user_base.create(current_user_data)
     return user
 
 
-async def get_or_create_or_update_user(telegram_user: TelegramUser) -> DatabaseModel:
-    """Возвращает текущего пользователя из БД, предварительно создав либо обновив о нем информацию."""
+async def get_or_create_or_update_user(telegram_user: TelegramUser) -> User:
+    """Получает информацию из update и на её основании возвращает пользователя.
+
+    Если пользователя с такими данными нет - создает пользователя,
+    если пользователь есть - обновляет информацию о нем в БД.
+    """
     user = await user_base.get_user(telegram_user.id)
 
     if user:
@@ -141,7 +141,7 @@ async def get_or_create_or_update_user(telegram_user: TelegramUser) -> DatabaseM
 
 
 async def check_private_chat_status(telegram_user: TelegramUser, current_status: str) -> None:
-    """Проверяет статус приватного чата."""
+    """Проверяет статус бота в приватном чате."""
     user = await get_or_create_or_update_user(telegram_user)
     if current_status in ChatMember.BANNED:
         await change_activate(instance=user, status=DEACTIVATE)
