@@ -27,7 +27,7 @@ async def check_private_chat_status(update: Update) -> None:
     current_status, _ = get_chat_status(update)
     if current_status in ChatMember.BANNED:
         user = await user_manager.get_user(update.effective_user.id)
-        await deactivate(instance=user)
+        await deactivate(user)
 
 
 def get_chat_status(update: Update) -> tuple[str, str]:
