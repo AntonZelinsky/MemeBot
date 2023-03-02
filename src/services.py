@@ -1,128 +1,9 @@
-from telegram import Bot, ChatMember, ChatMemberUpdated, Message
+from telegram import Bot, Chat, ChatMember, Message, Update
 from telegram import User as TelegramUser
 
 from src.db.base import channel_manager, user_manager
 from src.db.models import Channel, User
 from src.settings import DESCRIPTION
-
-ACTIVATE = True
-DEACTIVATE = False
-
-
-def user_parser(telegram_user: TelegramUser) -> User:
-    """Парсит данные пользователя из update в модель User."""
-    user_data = User(
-        account_id=telegram_user.id,
-        first_name=telegram_user.first_name,
-        last_name=telegram_user.last_name or None,
-        username=telegram_user.username or None,
-    )
-    return user_data
-
-
-def channel_parser(my_chat: ChatMemberUpdated, user_id: int) -> Channel:
-    """Парсит данные канала из update в модель Channel."""
-    telegram_channel = my_chat.chat
-    channel_data = Channel(
-        channel_id=telegram_channel.id,
-        title=telegram_channel.title,
-        username=telegram_channel.username or None,
-        invited_user_id=user_id,
-    )
-    return channel_data
-
-
-async def change_activate(instance, status: bool) -> None:
-    """Изменяет статус is_active у instance."""
-    instance.is_active = status
-    if isinstance(instance, User):
-        await user_manager.update(instance.id, instance)
-    elif isinstance(instance, Channel):
-        await channel_manager.update(instance.id, instance)
-
-
-def check_bot_posting(current_channel_chat: ChatMember) -> str:
-    """Проверяет у бота доступ к публикации сообщений в канале."""
-    text = "отправки сообщений в группу!"
-    if current_channel_chat.can_post_messages is True:
-        text = " есть права для " + text
-    else:
-        text = " отсутствуют права для " + text
-    return text
-
-
-async def create_channel(my_chat: ChatMemberUpdated, user_id: int) -> Channel:
-    """Создает канал по данным из update."""
-    current_channel_data = channel_parser(my_chat, user_id)
-    channel = await channel_manager.create(current_channel_data)
-    return channel
-
-
-def create_message(current_status: str, previous_status: str, my_chat: ChatMemberUpdated) -> str:
-    """Создает сообщение - уведомление о статусе бота в канале."""
-    text = ""
-    if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        text = f"Бот добавлен в канал '{my_chat.chat.title}',"
-    elif current_status == previous_status:
-        text = f"У бота в канале '{my_chat.chat.title}' изменены права,"
-    elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
-        message = f"Бот удален из канала '{my_chat.chat.title}'"
-        return message
-    rights_text = check_bot_posting(my_chat.new_chat_member)
-    message = text + rights_text
-    return message
-
-
-async def send_notify_message(channel_db: Channel, message: str, telegram_bot: Bot) -> None:
-    """Отправляет сообщение об изменении статуса бота в канале пользователю, который его добавил в канал."""
-    if channel_db and channel_db.user.is_active:
-        await telegram_bot.send_message(chat_id=channel_db.user.account_id, text=message)
-
-
-async def check_channel_chat_status(
-    telegram_user: TelegramUser,
-    my_chat: ChatMemberUpdated,
-    current_status: str,
-    previous_status: str,
-) -> Channel:
-    """Проверяет статус бота в чате канала."""
-    if current_status in ChatMember.ADMINISTRATOR and current_status != previous_status:
-        user = await get_or_create_or_update_user(telegram_user)
-        channel_db = await create_channel(my_chat, user.id)
-    elif current_status in [ChatMember.BANNED, ChatMember.LEFT]:
-        channel_db = await channel_manager.get_channel(my_chat.chat.id)
-        if channel_db:
-            await change_activate(instance=channel_db, status=DEACTIVATE)
-    else:
-        channel_db = await channel_manager.get_channel(my_chat.chat.id)
-    return channel_db
-
-
-async def check_channel_chat(
-    telegram_user: TelegramUser,
-    my_chat: ChatMemberUpdated,
-    current_status: str,
-    previous_status: str,
-    telegram_bot: Bot,
-) -> None:
-    """Сканирует изменения чата каналов из update."""
-    channel_db = await check_channel_chat_status(telegram_user, my_chat, current_status, previous_status)
-    message = create_message(current_status, previous_status, my_chat)
-    await send_notify_message(channel_db, message, telegram_bot)
-
-
-async def update_user(telegram_user: TelegramUser, user_id: int) -> User:
-    """Обновляет данные пользователя из update."""
-    current_user_data = user_parser(telegram_user)
-    user = await user_manager.update(user_id, current_user_data)
-    return user
-
-
-async def create_user(telegram_user: TelegramUser) -> User:
-    """Создает пользователя по данным из update."""
-    current_user_data = user_parser(telegram_user)
-    user = await user_manager.create(current_user_data)
-    return user
 
 
 async def get_or_create_or_update_user(telegram_user: TelegramUser) -> User:
@@ -140,17 +21,105 @@ async def get_or_create_or_update_user(telegram_user: TelegramUser) -> User:
     return user
 
 
-async def check_private_chat_status(telegram_user: TelegramUser, current_status: str) -> None:
+async def update_user(telegram_user: TelegramUser, user_id: int) -> User:
+    """Обновляет данные пользователя из update."""
+    parse_user = User.from_parse(telegram_user)
+    return await user_manager.update(user_id, parse_user)
+
+
+async def create_user(telegram_user: TelegramUser) -> User:
+    """Создает пользователя по данным из update."""
+    parse_user = User.from_parse(telegram_user)
+    return await user_manager.create(parse_user)
+
+
+async def check_private_chat_status(update: Update) -> None:
     """Проверяет статус бота в приватном чате."""
-    user = await get_or_create_or_update_user(telegram_user)
+    current_status, _ = get_chat_status(update)
     if current_status in ChatMember.BANNED:
-        await change_activate(instance=user, status=DEACTIVATE)
-    elif current_status in ChatMember.MEMBER:
-        await change_activate(instance=user, status=ACTIVATE)
+        user = await user_manager.get_user(update.effective_user.id)
+        await deactivate(instance=user)
+
+
+def get_chat_status(update: Update) -> tuple[str, str]:
+    current_status = update.my_chat_member.new_chat_member.status
+    previous_status = update.my_chat_member.old_chat_member.status
+    return current_status, previous_status
+
+
+async def deactivate(instance) -> None:
+    """Изменяет статус is_active у instance."""
+    instance.is_active = False
+    if isinstance(instance, User):
+        await user_manager.update(instance.id, instance)
+    elif isinstance(instance, Channel):
+        await channel_manager.update(instance.id, instance)
+
+
+async def check_channel_chat(update: Update, telegram_bot: Bot) -> None:
+    """Сканирует изменения чата каналов из update."""
+    channel = await check_channel_chat_status(update)
+    message = create_message(update)
+    await send_notify_message(channel, message, telegram_bot)
+
+
+async def check_channel_chat_status(update: Update) -> Channel:
+    """Проверяет статус бота в чате канала."""
+    current_status, previous_status = get_chat_status(update)
+    chat = update.my_chat_member.chat
+
+    if current_status in ChatMember.BANNED or current_status in ChatMember.LEFT:
+        channel = await channel_manager.get_channel(chat.id)
+        if channel:
+            await deactivate(instance=channel)
+    elif previous_status in ChatMember.BANNED or previous_status in ChatMember.LEFT:
+        user = await user_manager.get_user(update.effective_user.id)
+        channel = await create_channel(chat, user.id)
+    else:
+        channel = await channel_manager.get_channel(chat.id)
+    return channel
+
+
+async def create_channel(chat: Chat, user_id: int) -> Channel:
+    """Создает канал по данным из update."""
+    parse_channel = Channel.from_parse(chat, user_id)
+    return await channel_manager.create(parse_channel)
+
+
+def create_message(update: Update) -> str:
+    """Создает сообщение - уведомление о статусе бота в канале."""
+    text = ""
+    current_status, previous_status = get_chat_status(update)
+    my_chat = update.my_chat_member
+
+    if current_status in ChatMember.BANNED or current_status in ChatMember.LEFT:
+        return f"Бот удален из канала '{my_chat.chat.title}'."
+    elif previous_status in ChatMember.BANNED or previous_status in ChatMember.LEFT:
+        text = f"Бот добавлен в канал '{my_chat.chat.title}',"
+    elif current_status == previous_status:
+        text = f"У бота в канале '{my_chat.chat.title}' изменены права,"
+    rights_text = check_bot_posting_rights(my_chat.new_chat_member)
+    return text + rights_text
+
+
+def check_bot_posting_rights(current_channel_chat: ChatMember) -> str:
+    """Проверяет у бота доступ к публикации сообщений в канале."""
+    text = "отправки сообщений в группу!"
+    if current_channel_chat.can_post_messages is True:
+        text = " есть права для " + text
+    else:
+        text = " отсутствуют права для " + text
+    return text
+
+
+async def send_notify_message(channel: Channel, message: str, telegram_bot: Bot) -> None:
+    """Отправляет сообщение об изменении статуса бота в канале пользователю, который его добавил в канал."""
+    if channel and channel.user.is_active:
+        await telegram_bot.send_message(chat_id=channel.user.account_id, text=message)
 
 
 async def posting_message(message: Message, channel_id: int, telegram_bot: Bot) -> None:
-    """Публикует вложение из сообщения в канал пользователя."""
+    """Публикует вложение из сообщения в каналы пользователя."""
     if message.animation:
         await telegram_bot.send_animation(
             chat_id=channel_id,
@@ -159,5 +128,5 @@ async def posting_message(message: Message, channel_id: int, telegram_bot: Bot) 
         )
     elif message.photo:
         await telegram_bot.send_photo(chat_id=channel_id, photo=message.photo[0].file_id, caption=DESCRIPTION)
-    else:
+    elif message.video:
         await telegram_bot.send_video(chat_id=channel_id, video=message.video.file_id, caption=DESCRIPTION)
