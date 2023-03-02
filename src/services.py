@@ -13,24 +13,13 @@ async def get_or_create_or_update_user(telegram_user: TelegramUser) -> User:
     если пользователь есть - обновляет информацию о нем в БД.
     """
     user = await user_manager.get_user(telegram_user.id)
+    parse_user = User.from_parse(telegram_user)
 
     if user:
-        user = await update_user(telegram_user, user.id)
+        user = await user_manager.update(user.id, parse_user)
     else:
-        user = await create_user(telegram_user)
+        user = await user_manager.create(parse_user)
     return user
-
-
-async def update_user(telegram_user: TelegramUser, user_id: int) -> User:
-    """Обновляет данные пользователя из update."""
-    parse_user = User.from_parse(telegram_user)
-    return await user_manager.update(user_id, parse_user)
-
-
-async def create_user(telegram_user: TelegramUser) -> User:
-    """Создает пользователя по данным из update."""
-    parse_user = User.from_parse(telegram_user)
-    return await user_manager.create(parse_user)
 
 
 async def check_private_chat_status(update: Update) -> None:
