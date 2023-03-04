@@ -8,7 +8,7 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 
-class BaseManager:
+class BaseManager(object):
     """Создает и обновляет объект в БД."""
 
     def __init__(self, model, session: AsyncSession) -> None:
