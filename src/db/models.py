@@ -29,13 +29,13 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
 
     @classmethod
-    def from_parse(cls, chat_data) -> "User":
+    def from_parse(cls, user_data: dict) -> "User":
         """Парсит данные из data в модель User."""
         return cls(
-            account_id=chat_data.id,
-            first_name=chat_data.first_name,
-            last_name=chat_data.last_name or None,
-            username=chat_data.username or None,
+            account_id=user_data["id"],
+            first_name=user_data["first_name"],
+            last_name=user_data.get("last_name", None),
+            username=user_data.get("username", None),
             is_active=True,
         )
 
@@ -63,12 +63,12 @@ class Channel(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
 
     @classmethod
-    def from_parse(cls, chat_data, user_id: int) -> "Channel":
+    def from_parse(cls, channel_data: dict, user_id: int) -> "Channel":
         """Парсит данные из data в модель User."""
         return cls(
-            channel_id=chat_data.id,
-            title=chat_data.title,
-            username=chat_data.username or None,
+            channel_id=channel_data["id"],
+            title=channel_data["title"],
+            username=channel_data.get("username", None),
             invited_user_id=user_id,
         )
 
