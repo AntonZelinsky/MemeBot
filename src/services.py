@@ -1,4 +1,4 @@
-from telegram import Bot, Chat, ChatMember, Message, Update
+from telegram import Bot, ChatMember, Message, Update
 from telegram import User as TelegramUser
 
 from src.db.base import channel_manager, user_manager
@@ -13,7 +13,7 @@ async def get_or_create_or_update_user(telegram_user: TelegramUser) -> User:
     если пользователь есть - обновляет информацию о нем в БД.
     """
     user = await user_manager.get_user(telegram_user.id)
-    parse_user = User.from_parse(telegram_user)
+    parse_user = User.from_parse(telegram_user.to_dict())
 
     if user:
         user = await user_manager.update(user.id, parse_user)
@@ -62,16 +62,16 @@ async def check_channel_chat_status(update: Update) -> Channel:
         if channel:
             await deactivate(instance=channel)
     elif previous_status in ChatMember.BANNED or previous_status in ChatMember.LEFT:
-        user = await user_manager.get_user(update.effective_user.id)
-        channel = await create_channel(chat, user.id)
+        channel = await create_channel(update)
     else:
         channel = await channel_manager.get_channel(chat.id)
     return channel
 
 
-async def create_channel(chat: Chat, user_id: int) -> Channel:
+async def create_channel(update: Update) -> Channel:
     """Создает канал по данным из update."""
-    parse_channel = Channel.from_parse(chat, user_id)
+    user = await user_manager.get_user(update.effective_user.id)
+    parse_channel = Channel.from_parse(update.my_chat_member.chat.to_dict(), user.id)
     return await channel_manager.create(parse_channel)
 
 
@@ -87,14 +87,14 @@ def create_message(update: Update) -> str:
         text = f"Бот добавлен в канал '{my_chat.chat.title}',"
     elif current_status == previous_status:
         text = f"У бота в канале '{my_chat.chat.title}' изменены права,"
-    rights_text = check_bot_posting_rights(my_chat.new_chat_member)
+    rights_text = bot_posting_rights_message(my_chat.new_chat_member.can_post_messages)
     return text + rights_text
 
 
-def check_bot_posting_rights(current_channel_chat: ChatMember) -> str:
+def bot_posting_rights_message(can_post: bool) -> str:
     """Проверяет у бота доступ к публикации сообщений в канале."""
     text = "отправки сообщений в группу!"
-    if current_channel_chat.can_post_messages is True:
+    if can_post is True:
         text = " есть права для " + text
     else:
         text = " отсутствуют права для " + text
