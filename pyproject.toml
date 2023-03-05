@@ -2,18 +2,22 @@
 name = "memebot"
 version = "0.1.0"
 description = ""
-authors = ["pozarnik"]
+authors = ["https://github.com/pozarnik"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
 environs = "^9.5.0"
 python-telegram-bot = "^20.0"
+sqlalchemy = "^2.0.0"
+alembic = "^1.9.2"
+asyncpg = "^0.27.0"
 
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.0.1"
 black = "^22.12.0"
+aiosqlite = "^0.18.0"
 
 [build-system]
 requires = ["poetry-core"]
