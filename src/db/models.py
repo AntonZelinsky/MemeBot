@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import BIGINT, ForeignKey, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -22,19 +22,32 @@ class User(Base):
     last_name: Mapped[Optional[str]]
     username: Mapped[Optional[str]]
     channels: Mapped[List["Channel"]] = relationship(
-        back_populates="user", lazy="selectin", cascade="all, delete-orphan"
+        back_populates="user",
+        lazy="selectin",
+        cascade="all, delete-orphan",
     )
     is_active: Mapped[bool] = mapped_column(default=True)
 
+    @classmethod
+    def from_parse(cls, user_data: dict) -> "User":
+        """Парсит данные из data в модель User."""
+        return cls(
+            account_id=user_data["id"],
+            first_name=user_data["first_name"],
+            last_name=user_data.get("last_name", None),
+            username=user_data.get("username", None),
+            is_active=True,
+        )
+
     def __repr__(self) -> str:
         return (
-            f"User: "
+            f"User("
             f"id={self.id!r}, "
             f"account_id={self.account_id!r}, "
             f"first_name={self.first_name!r}, "
             f"last_name={self.last_name!r}, "
             f"username={self.username!r}, "
-            f"is_active={self.is_active!r}"
+            f"is_active={self.is_active!r})"
         )
 
 
@@ -42,7 +55,7 @@ class Channel(Base):
     """Модель канала."""
 
     __tablename__ = "channel"
-    channel_id: Mapped[int]
+    channel_id: Mapped[int] = mapped_column(BIGINT)
     title: Mapped[str]
     username: Mapped[Optional[str]]
     text_message: Mapped[Optional[str]]
@@ -50,14 +63,24 @@ class Channel(Base):
     user: Mapped["User"] = relationship(back_populates="channels", lazy="selectin")
     is_active: Mapped[bool] = mapped_column(default=True)
 
+    @classmethod
+    def from_parse(cls, channel_data: dict, user_id: int) -> "Channel":
+        """Парсит данные из data в модель User."""
+        return cls(
+            channel_id=channel_data["id"],
+            title=channel_data["title"],
+            username=channel_data.get("username", None),
+            invited_user_id=user_id,
+        )
+
     def __repr__(self) -> str:
         return (
-            f"Channel: "
+            f"Channel("
             f"id={self.id!r}, "
             f"channel_id={self.channel_id!r}, "
             f"username={self.username}, "
             f"text_message={self.text_message}"
             f"title={self.title!r}, "
             f"invited_user_id={self.invited_user_id!r}, "
-            f"is_active={self.is_active!r}"
+            f"is_active={self.is_active!r})"
         )

@@ -29,4 +29,18 @@ jobs:
             
             python3 -m pip install -r requirements.txt
             python3 alembic upgrade head
-            python3 run_pulling.py
+            
+            sudo touch /etc/systemd/system/python.service
+            echo [Unit] >> python.service
+            echo Description=MemeBot daemon >> python.service
+            echo After=network.target >> python.service
+            echo [Service] >> python.service
+            echo User=${{ secrets.USERNAME }} >> python.service
+            echo WorkingDirectory=/home/${{ secrets.USERNAME }}/MemeBot/ >> python.service
+            echo ExecStart= python3 /home/${{ secrets.USERNAME }}/MemeBot/run_pulling.py >> python.service
+            echo [Install] >> python.service
+            echo WantedBy=multi-user.target >> python.service
+            
+            sudo systemctl enable python.service
+            sudo systemctl daemon-reload
+            sudo systemctl start python.service

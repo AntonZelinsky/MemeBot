@@ -1,48 +1,129 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from telegram import Chat, ChatMember, User
+import telegram
+from sqlalchemy import exc
 
-from src.db.crud import channel_crud, user_crud
-
-
-def user_parser(user: User) -> dict:
-    """Парсит данные пользователя."""
-    parsed_user = {
-        "account_id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name or None,
-        "username": user.username or None,
-    }
-    return parsed_user
+from src import settings
+from src.db import base, models
 
 
-def channel_parser(chat: Chat, user_id: int) -> dict:
-    """Парсит данные канала."""
-    channel = {
-        "channel_id": chat.id,
-        "title": chat.title,
-        "username": chat.username or None,
-        "invited_user_id": user_id,
-    }
+async def get_or_create_or_update_user(telegram_user: telegram.User) -> models.User:
+    """Получает информацию из update и на её основании возвращает пользователя.
+
+    Если пользователя с такими данными нет - создает пользователя,
+    если пользователь есть - обновляет информацию о нем в БД.
+    """
+    parse_user = models.User.from_parse(telegram_user.to_dict())
+
+    try:
+        user = await base.user_manager.get_user(telegram_user.id)
+        user = await base.user_manager.update(user.id, parse_user)
+    except exc.NoResultFound:
+        user = await base.user_manager.create(parse_user)
+    return user
+
+
+async def check_private_chat_status(update: telegram.Update) -> None:
+    """Проверяет статус бота в приватном чате."""
+    current_status, _ = get_chat_status(update)
+    if current_status in telegram.ChatMember.BANNED:
+        user = await base.user_manager.get_user(update.effective_user.id)
+        await deactivate(user)
+
+
+def get_chat_status(update: telegram.Update) -> tuple[str, str]:
+    current_status = update.my_chat_member.new_chat_member.status
+    previous_status = update.my_chat_member.old_chat_member.status
+    return current_status, previous_status
+
+
+async def deactivate(instance: models.User | models.Channel) -> None:
+    """Изменяет статус is_active у instance."""
+    instance.is_active = False
+    if isinstance(instance, models.User):
+        await base.user_manager.update(instance.id, instance)
+    elif isinstance(instance, models.Channel):
+        await base.channel_manager.update(instance.id, instance)
+
+
+async def check_channel_chat(update: telegram.Update, telegram_bot: telegram.Bot) -> None:
+    """Сканирует изменения чата каналов из update."""
+    channel = await check_channel_chat_status(update)
+    message = create_message(update)
+    await send_notify_message(channel, message, telegram_bot)
+
+
+async def check_channel_chat_status(update: telegram.Update) -> models.Channel:
+    """Проверяет статус бота в чате канала."""
+    current_status, previous_status = get_chat_status(update)
+    chat = update.my_chat_member.chat
+
+    if current_status in telegram.ChatMember.BANNED or current_status in telegram.ChatMember.LEFT:
+        channel = await base.channel_manager.get_channel(chat.id)
+        await deactivate(instance=channel)
+    elif previous_status in telegram.ChatMember.BANNED or previous_status in telegram.ChatMember.LEFT:
+        channel = await create_channel(update)
+    else:
+        channel = await base.channel_manager.get_channel(chat.id)
     return channel
 
 
-async def activate_user(user_id: int, session: AsyncSession, status: bool = True):
-    """Изменяет статус is_active у пользователя."""
-    is_active = {"is_active": status}
-    await user_crud.update(user_id, is_active, session)
+async def create_channel(update: telegram.Update) -> models.Channel:
+    """Создает канал по данным из update."""
+    user = await base.user_manager.get_user(update.effective_user.id)
+    parse_channel = models.Channel.from_parse(update.my_chat_member.chat.to_dict(), user.id)
+    return await base.channel_manager.create(parse_channel)
 
 
-async def deactivate_channel(channel_id: int, session: AsyncSession):
-    """Изменяет статус is_active у канала на False."""
-    is_active = {"is_active": False}
-    await channel_crud.update(channel_id, is_active, session)
+def create_message(update: telegram.Update) -> str:
+    """Создает сообщение - уведомление о статусе бота в канале."""
+    text = ""
+    current_status, previous_status = get_chat_status(update)
+    my_chat = update.my_chat_member
+
+    if current_status in telegram.ChatMember.BANNED or current_status in telegram.ChatMember.LEFT:
+        return f"Бот удален из канала '{my_chat.chat.title}'."
+    elif previous_status in telegram.ChatMember.BANNED or previous_status in telegram.ChatMember.LEFT:
+        text = f"Бот добавлен в канал '{my_chat.chat.title}',"
+    elif current_status == previous_status:
+        text = f"У бота в канале '{my_chat.chat.title}' изменены права,"
+    rights_text = bot_posting_rights_message(my_chat.new_chat_member.can_post_messages)
+    return text + rights_text
 
 
-def check_bot_privileges(current_channel_chat: ChatMember) -> str:
-    """Проверяет у бота доступ к постингу сообщений в канале."""
+def bot_posting_rights_message(can_post: bool) -> str:
+    """Проверяет у бота доступ к публикации сообщений в канале."""
     text = "отправки сообщений в группу!"
-    if current_channel_chat.can_post_messages is True:
+    if can_post is True:
         text = " есть права для " + text
     else:
         text = " отсутствуют права для " + text
     return text
+
+
+async def send_notify_message(channel: models.Channel, message: str, telegram_bot: telegram.Bot) -> None:
+    """Отправляет сообщение об изменении статуса бота в канале пользователю, который его добавил в канал."""
+    if channel.user.is_active:
+        await telegram_bot.send_message(chat_id=channel.user.account_id, text=message)
+
+
+async def posting_message(message: telegram.Message, channel_id: int, telegram_bot: telegram.Bot) -> None:
+    """Публикует вложение из сообщения в каналы пользователя."""
+    if message.animation:
+        await telegram_bot.send_animation(
+            chat_id=channel_id,
+            animation=message.animation.file_id,
+            caption=settings.DESCRIPTION,
+        )
+    elif message.photo:
+        await telegram_bot.send_photo(
+            chat_id=channel_id,
+            photo=message.photo[0].file_id,
+            caption=settings.DESCRIPTION,
+        )
+    elif message.video:
+        await telegram_bot.send_video(
+            chat_id=channel_id,
+            video=message.video.file_id,
+            caption=settings.DESCRIPTION,
+        )
+    else:
+        raise telegram.error.TelegramError("Неподдерживаемый тип данных.")

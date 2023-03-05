@@ -30,13 +30,16 @@ def create_bot():
             ],
             states.CHANNEL_MENU_STATE: [
                 CallbackQueryHandler(
-                    menu_commands.ask_for_input, pattern=callback_data.CALLBACK_EDIT_DESCRIPTION_COMMAND
+                    menu_commands.ask_for_input,
+                    pattern=callback_data.CALLBACK_EDIT_DESCRIPTION_COMMAND,
                 ),
                 CallbackQueryHandler(
-                    menu_commands.leave_the_channel, pattern=callback_data.CALLBACK_LEAVE_THE_CHANNEL_COMMAND
+                    menu_commands.leave_the_channel,
+                    pattern=callback_data.CALLBACK_LEAVE_THE_CHANNEL_COMMAND,
                 ),
                 CallbackQueryHandler(
-                    menu_commands.my_channels, pattern=callback_data.CALLBACK_BACK_TO_CHANNELS_COMMAND
+                    menu_commands.my_channels,
+                    pattern=callback_data.CALLBACK_BACK_TO_CHANNELS_COMMAND,
                 ),
             ],
             states.TYPING_STATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, menu_commands.edit_description)],
@@ -50,7 +53,8 @@ def create_bot():
     application.add_handler(ChatMemberHandler(track_chats_handler, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_handler(
         MessageHandler(
-            filters.ChatType.PRIVATE & (filters.VIDEO | filters.PHOTO | filters.ANIMATION), forward_attachment_handler
-        )
+            filters.ChatType.PRIVATE & (filters.VIDEO | filters.PHOTO | filters.ANIMATION),
+            forward_attachment_handler,
+        ),
     )
     return application
