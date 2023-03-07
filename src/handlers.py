@@ -8,14 +8,18 @@ from src.db.base import user_manager
 async def start(update: Update, context: CallbackContext) -> None:
     """Команда /start."""
     start_text = (
-        "Бот публикует вложения из полученных сообщений в ваш канал.\n"
-        "Как работать с ботом:\n"
-        "1) Добавьте бота в свой канал с правами публикации сообщений (работает только с каналами)\n"
-        "2) Отправьте боту любое сообщение с видео/фото либо анимацией (одиночной)\n"
-        "3) Бот опубликует это вложение в вашем канале от имени канала"
+        "Привет. Я — Мем бот и буду помогать вам постить мемы в ваши каналы.\n"
+        "Чтобы начать работу - просто добавьте бота в каналы, в которые вы хотите постить сообщения.\n"
+        "Если бот уже добавлен в ваш канал другим администратором, для получения совместного доступа к боту вам "
+        "необходимо связать вашу учетную запись с каналом, нажав на соответствующий пункт в меню. "
+        "Если вы являетесь администратором канала, в котором присутствует бот, то вы получите возможность "
+        "постить в этот канал. Боту в канале достаточно дать права на отправку сообщений."
     )
     await services.get_or_create_or_update_user(update.effective_user)
-    await context.bot.send_message(chat_id=update.effective_user.id, text=start_text)
+    await update.message.reply_text(text=start_text)
+    # await context.bot.send_message(chat_id=update.effective_user.id, text=start_text)
+    # print(f"start up={update}")
+    # await menu_commands.start_menu(update, context)
 
 
 async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
