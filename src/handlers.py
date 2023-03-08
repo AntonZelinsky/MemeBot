@@ -1,3 +1,4 @@
+from sqlalchemy import exc
 from telegram import Chat, Update
 from telegram.ext import CallbackContext, ContextTypes
 
@@ -33,8 +34,10 @@ async def track_chats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Парсит фото, видео и анимацию из полученного сообщения."""
-    user = await user_manager.get_user(update.effective_user.id)
-
+    try:
+        user = await user_manager.get_user(update.effective_user.id)
+    except exc.NoResultFound:
+        raise exc.NoResultFound
     for channel in user.channels:
         if channel and channel.is_active is True:
             channel_id = channel.channel_id
