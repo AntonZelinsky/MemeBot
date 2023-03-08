@@ -89,7 +89,7 @@ class Channel(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
 
     @classmethod
-    def from_parse(cls, channel_data: dict, user_id: int) -> "Channel":
+    def from_parse(cls, channel_data: dict) -> "Channel":
         """Парсит данные из data в модель User."""
         return cls(
             channel_id=channel_data["id"],
