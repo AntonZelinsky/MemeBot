@@ -4,6 +4,9 @@ from sqlalchemy import exc
 from src import settings
 from src.db import base, models
 
+ACTIVATE = True
+DEACTIVATE = False
+
 
 async def get_or_create_or_update_user(telegram_user: telegram.User) -> models.User:
     """Получает информацию из update и на её основании возвращает пользователя.
@@ -15,10 +18,17 @@ async def get_or_create_or_update_user(telegram_user: telegram.User) -> models.U
 
     try:
         user = await base.user_manager.get_user(telegram_user.id)
-        user = await base.user_manager.update(user.id, parse_user)
+        user_update = change_activate(parse_user, ACTIVATE)
+        user = await base.user_manager.update(user.id, user_update)
     except exc.NoResultFound:
         user = await base.user_manager.create(parse_user)
     return user
+
+
+def change_activate(instance, status: bool):  # Тайпинги
+    """Изменяет статус is_active у instance."""
+    instance.is_active = status
+    return instance
 
 
 async def check_private_chat_status(update: telegram.Update) -> None:
@@ -26,22 +36,14 @@ async def check_private_chat_status(update: telegram.Update) -> None:
     current_status, _ = get_chat_status(update)
     if current_status in telegram.ChatMember.BANNED:
         user = await base.user_manager.get_user(update.effective_user.id)
-        await deactivate(user)
+        user_update = change_activate(user, DEACTIVATE)
+        await base.user_manager.update(user.id, user_update)
 
 
 def get_chat_status(update: telegram.Update) -> tuple[str, str]:
     current_status = update.my_chat_member.new_chat_member.status
     previous_status = update.my_chat_member.old_chat_member.status
     return current_status, previous_status
-
-
-async def deactivate(instance: models.User | models.Channel) -> None:
-    """Изменяет статус is_active у instance."""
-    instance.is_active = False
-    if isinstance(instance, models.User):
-        await base.user_manager.update(instance.id, instance)
-    elif isinstance(instance, models.Channel):
-        await base.channel_manager.update(instance.id, instance)
 
 
 async def check_channel_chat(update: telegram.Update, telegram_bot: telegram.Bot) -> None:
@@ -57,20 +59,30 @@ async def check_channel_chat_status(update: telegram.Update) -> models.Channel:
     chat = update.my_chat_member.chat
 
     if current_status in telegram.ChatMember.BANNED or current_status in telegram.ChatMember.LEFT:
-        channel = await base.channel_manager.get_channel(chat.id)
-        await deactivate(instance=channel)
+        try:
+            channel = await base.channel_manager.get_channel(chat.id)
+            channel_update = change_activate(channel, DEACTIVATE)
+            channel = await base.channel_manager.update(channel.id, channel_update)
+        except exc.NoResultFound:
+            raise exc.NoResultFound
     elif previous_status in telegram.ChatMember.BANNED or previous_status in telegram.ChatMember.LEFT:
-        channel = await create_channel(update)
+        parse_channel = models.Channel.from_parse(update.my_chat_member.chat.to_dict())
+        try:
+            channel = await base.channel_manager.get_channel(chat.id)
+            channel_update = change_activate(parse_channel, ACTIVATE)
+            channel = await base.channel_manager.update(channel.id, channel_update)
+        except exc.NoResultFound:
+            channel = await base.channel_manager.create(parse_channel)
     else:
         channel = await base.channel_manager.get_channel(chat.id)
     return channel
 
 
-async def create_channel(update: telegram.Update) -> models.Channel:
-    """Создает канал по данным из update."""
-    user = await base.user_manager.get_user(update.effective_user.id)
-    parse_channel = models.Channel.from_parse(update.my_chat_member.chat.to_dict(), user.id)
-    return await base.channel_manager.create(parse_channel)
+# async def create_channel(update: telegram.Update) -> models.Channel:
+#     """Создает канал по данным из update."""
+#     user = await base.user_manager.get_user(update.effective_user.id)
+#     parse_channel = models.Channel.from_parse(update.my_chat_member.chat.to_dict())
+#     return await base.channel_manager.create(parse_channel)
 
 
 def create_message(update: telegram.Update) -> str:
