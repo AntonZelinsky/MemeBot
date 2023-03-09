@@ -17,11 +17,11 @@ async def get_or_create_or_update_user(telegram_user: telegram.User) -> models.U
     parse_user = models.User.from_parse(telegram_user.to_dict())
 
     try:
-        user = await base.user_manager.get_user(telegram_user.id)
+        user = await base.user_repository.get_user(telegram_user.id)
         user_update = change_activate(parse_user, ACTIVATE)
-        user = await base.user_manager.update(user.id, user_update)
+        user = await base.user_repository.update(user.id, user_update)
     except exc.NoResultFound:
-        user = await base.user_manager.create(parse_user)
+        user = await base.user_repository.create(parse_user)
     return user
 
 
@@ -35,9 +35,12 @@ async def check_private_chat_status(update: telegram.Update) -> None:
     """Проверяет статус бота в приватном чате."""
     current_status, _ = get_chat_status(update)
     if current_status in telegram.ChatMember.BANNED:
-        user = await base.user_manager.get_user(update.effective_user.id)
-        user_update = change_activate(user, DEACTIVATE)
-        await base.user_manager.update(user.id, user_update)
+        try:
+            user = await base.user_repository.get_user(update.effective_user.id)
+            user_update = change_activate(user, DEACTIVATE)
+            await base.user_repository.update(user.id, user_update)
+        except exc.NoResultFound:
+            pass  # Придумать чем заменить
 
 
 def get_chat_status(update: telegram.Update) -> tuple[str, str]:
@@ -48,9 +51,12 @@ def get_chat_status(update: telegram.Update) -> tuple[str, str]:
 
 async def check_channel_chat(update: telegram.Update, telegram_bot: telegram.Bot) -> None:
     """Сканирует изменения чата каналов из update."""
-    channel = await check_channel_chat_status(update)
-    message = create_message(update)
-    await send_notify_message(channel, message, telegram_bot)
+    await check_channel_chat_status(update)
+
+    # channel = await check_channel_chat_status(update)
+    #
+    # message = create_message(update)
+    # await send_notify_message(channel, message, telegram_bot)
 
 
 async def check_channel_chat_status(update: telegram.Update) -> models.Channel:
@@ -60,29 +66,32 @@ async def check_channel_chat_status(update: telegram.Update) -> models.Channel:
 
     if current_status in telegram.ChatMember.BANNED or current_status in telegram.ChatMember.LEFT:
         try:
-            channel = await base.channel_manager.get_channel(chat.id)
+            channel = await base.channel_repository.get_channel(chat.id)
             channel_update = change_activate(channel, DEACTIVATE)
-            channel = await base.channel_manager.update(channel.id, channel_update)
+            channel = await base.channel_repository.update(channel.id, channel_update)
         except exc.NoResultFound:
-            raise exc.NoResultFound
+            raise exc.NoResultFound  # Придумать чем заменить
     elif previous_status in telegram.ChatMember.BANNED or previous_status in telegram.ChatMember.LEFT:
         parse_channel = models.Channel.from_parse(update.my_chat_member.chat.to_dict())
         try:
-            channel = await base.channel_manager.get_channel(chat.id)
+            channel = await base.channel_repository.get_channel(chat.id)
             channel_update = change_activate(parse_channel, ACTIVATE)
-            channel = await base.channel_manager.update(channel.id, channel_update)
+            channel = await base.channel_repository.update(channel.id, channel_update)
         except exc.NoResultFound:
-            channel = await base.channel_manager.create(parse_channel)
+            channel = await base.channel_repository.create(parse_channel)
+        user = await base.user_repository.get_user(update.effective_user.id)  # Здесь может вылететь
+        new_bind = models.UserChannel.new_bind(user.id, channel.id)
+        await base.user_channel_repository.create(new_bind)
     else:
-        channel = await base.channel_manager.get_channel(chat.id)
+        channel = await base.channel_repository.get_channel(chat.id)  # Здесь может вылететь
     return channel
 
 
 # async def create_channel(update: telegram.Update) -> models.Channel:
 #     """Создает канал по данным из update."""
-#     user = await base.user_manager.get_user(update.effective_user.id)
+#     user = await base.user_repository.get_user(update.effective_user.id)
 #     parse_channel = models.Channel.from_parse(update.my_chat_member.chat.to_dict())
-#     return await base.channel_manager.create(parse_channel)
+#     return await base.channel_repository.create(parse_channel)
 
 
 def create_message(update: telegram.Update) -> str:
