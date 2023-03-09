@@ -8,7 +8,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 class Base(DeclarativeBase):
     """Базовая модель."""
 
-    id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(default=func.now(), nullable=False, onupdate=func.now())
 
@@ -23,8 +22,11 @@ class UserChannel(Base):
     is_active: Mapped[bool] = mapped_column(default=True)  # ???
 
     @classmethod
-    def from_parse(cls, user, channel) -> "UserChannel":
-        ...
+    def new_bind(cls, user_id: int, channel_id: int) -> "UserChannel":
+        return cls(
+            user_id=user_id,
+            channel_id=channel_id,
+        )
 
     def __repr__(self) -> str:
         return (
@@ -40,12 +42,13 @@ class User(Base):
     """Модель пользователя."""
 
     __tablename__ = "user"
+    id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(unique=True)
     first_name: Mapped[str]
     last_name: Mapped[Optional[str]]
     username: Mapped[Optional[str]]
     channels: Mapped[List["UserChannel"]] = relationship(
-        backref="user",
+        backref="users",
         lazy="selectin",
         cascade="all, delete-orphan",
     )
@@ -77,10 +80,10 @@ class Channel(Base):
     """Модель канала."""
 
     __tablename__ = "channel"
-    channel_id: Mapped[BigInteger] = mapped_column(unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     title: Mapped[str]
     username: Mapped[Optional[str]]
-    # invited_user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     users: Mapped[List["UserChannel"]] = relationship(
         backref="channels",
         lazy="selectin",
@@ -95,7 +98,6 @@ class Channel(Base):
             channel_id=channel_data["id"],
             title=channel_data["title"],
             username=channel_data.get("username", None),
-            # invited_user_id=user_id,
         )
 
     def __repr__(self) -> str:
@@ -105,7 +107,5 @@ class Channel(Base):
             f"channel_id={self.channel_id!r}, "
             f"title={self.title!r}, "
             f"username={self.username}, "
-            # f"text_message={self.text_message}"
-            # f"invited_user_id={self.invited_user_id!r}, "
             f"is_active={self.is_active!r})"
         )
