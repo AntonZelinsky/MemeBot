@@ -3,7 +3,7 @@ from typing import Generic, TypeVar
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.db.models import Channel, User
+from src.db.models import Channel, User, UserChannel
 from src.settings import DATABASE_URL
 
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -57,12 +57,21 @@ class ChannelRepository(BaseRepository[Channel]):
 
     async def get_channel(self, channel_id: int) -> Channel:
         """Возвращает объект Channel из БД по его channel_id."""
-        channel = await self._session.scalars(
-            select(self._model).where(self._model.channel_id == channel_id).where(self._model.is_active),
-        )
+        channel = await self._session.scalars(select(self._model).where(self._model.channel_id == channel_id))
         await self._session.close()
         return channel.one()
 
 
-user_manager = UserRepository()
-channel_manager = ChannelRepository()
+class UserChannelRepository(BaseRepository[UserChannel]):
+    """Класс для работы со связями пользователей и каналов."""
+
+    def __init__(self) -> None:
+        super().__init__(UserChannelRepository, async_session())
+
+    async def get_bind(self):
+        pass
+
+
+user_repository = UserRepository()
+channel_repository = ChannelRepository()
+user_channel_repository = UserChannelRepository()
