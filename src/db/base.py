@@ -42,11 +42,11 @@ class UserRepository(BaseRepository[User]):
     def __init__(self) -> None:
         super().__init__(User, async_session())
 
-    async def get_user(self, account_id: int) -> User:
+    async def get_user(self, account_id: int) -> User | None:
         """Возвращает объект User из БД по его account_id."""
-        user = await self._session.scalars(select(self._model).where(self._model.account_id == account_id))
+        user = await self._session.scalar(select(self._model).where(self._model.account_id == account_id))
         await self._session.close()
-        return user.one()
+        return user
 
 
 class ChannelRepository(BaseRepository[Channel]):
@@ -55,11 +55,11 @@ class ChannelRepository(BaseRepository[Channel]):
     def __init__(self) -> None:
         super().__init__(Channel, async_session())
 
-    async def get_channel(self, channel_id: int) -> Channel:
+    async def get_channel(self, channel_id: int) -> Channel | None:
         """Возвращает объект Channel из БД по его channel_id."""
-        channel = await self._session.scalars(select(self._model).where(self._model.channel_id == channel_id))
+        channel = await self._session.scalar(select(self._model).where(self._model.channel_id == channel_id))
         await self._session.close()
-        return channel.one()
+        return channel
 
 
 class UserChannelRepository(BaseRepository[UserChannel]):
@@ -68,8 +68,13 @@ class UserChannelRepository(BaseRepository[UserChannel]):
     def __init__(self) -> None:
         super().__init__(UserChannelRepository, async_session())
 
-    async def get_bind(self):
-        pass
+    async def get_bind(self, user_id: int, channel_id: int) -> UserChannel | None:
+        """Возвращает объект Channel из БД по его channel_id."""
+        user_channel = await self._session.scalar(
+            select(self._model).where(self._model.user_id == user_id).where(self._model.channel_id == channel_id),
+        )
+        await self._session.close()
+        return user_channel
 
 
 user_repository = UserRepository()
