@@ -40,14 +40,13 @@ def create_bot():
             ],
             states.CHANNEL_MENU_STATE: [
                 CallbackQueryHandler(menu_commands.edit_description, pattern=callback_data.CALLBACK_EDIT_DESCRIPTION),
-                CallbackQueryHandler(menu_commands.leave_the_channel, pattern=callback_data.CALLBACK_LEAVE_THE_CHANNEL),
                 CallbackQueryHandler(menu_commands.my_channels, pattern=callback_data.CALLBACK_BACK_TO_CHANNELS),
             ],
             states.BINDING_CHANNEL: [
                 MessageHandler(filters.ALL, menu_commands.type_channel_for_binding),
             ],
             states.TYPING_DESCRIPTION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, menu_commands.input_description),
+                MessageHandler(filters.TEXT, menu_commands.input_description),
             ],
         },
         fallbacks=[CommandHandler("menu", menu_commands.start_menu)],
