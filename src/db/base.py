@@ -13,7 +13,7 @@ T = TypeVar("T")
 
 
 class BaseRepository(Generic[T]):
-    """Создает и обновляет объект в БД."""
+    """Базовый репозиторий. Позволяет создавать и обновляет объект в БД."""
 
     def __init__(self, model: T, session: AsyncSession) -> None:
         self._model = model
@@ -37,41 +37,41 @@ class BaseRepository(Generic[T]):
 
 
 class UserRepository(BaseRepository[User]):
-    """Класс для работы с моделью User в БД."""
+    """Репозиторий для работы с моделью User в БД."""
 
     def __init__(self) -> None:
         super().__init__(User, async_session())
 
     async def get_user(self, account_id: int) -> User | None:
-        """Возвращает объект User из БД по его account_id."""
+        """Возвращает объект User из БД по его account_id, если его нет - возвращает None."""
         user = await self._session.scalar(select(self._model).where(self._model.account_id == account_id))
         await self._session.close()
         return user
 
 
 class ChannelRepository(BaseRepository[Channel]):
-    """Класс для работы с моделью Channel в БД."""
+    """Репозиторий для работы с моделью Channel в БД."""
 
     def __init__(self) -> None:
         super().__init__(Channel, async_session())
 
     async def get_channel(self, channel_id: int) -> Channel | None:
-        """Возвращает объект Channel из БД по его channel_id."""
+        """Возвращает объект Channel из БД по его channel_id, если его нет - возвращает None."""
         channel = await self._session.scalar(select(self._model).where(self._model.channel_id == channel_id))
         await self._session.close()
         return channel
 
 
 class UserChannelRepository(BaseRepository[UserChannel]):
-    """Класс для работы со связями пользователей и каналов."""
+    """Репозиторий для работы с моделью UserChannel в БД."""
 
     def __init__(self) -> None:
-        super().__init__(UserChannelRepository, async_session())
+        super().__init__(UserChannel, async_session())
 
     async def get_bind(self, user_id: int, channel_id: int) -> UserChannel | None:
-        """Возвращает объект Channel из БД по его channel_id."""
+        """Возвращает объект UserChannel из БД по его user_id и channel_id, если его нет - возвращает None."""
         user_channel = await self._session.scalar(
-            select(self._model).where(self._model.user_id == user_id).where(self._model.channel_id == channel_id),
+            select(self._model).where(self._model.user_id == user_id and self._model.channel_id == channel_id),
         )
         await self._session.close()
         return user_channel
