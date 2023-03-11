@@ -3,11 +3,11 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from src import services
 from src.constants import callback_data, constants, states
-from src.db import base, models
+from src.db import base
 
 
 async def start_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Начальное меню."""
+    """Стартовое меню."""
     context.user_data[constants.STOP_FORWARD] = False
     register_button = [[InlineKeyboardButton("Зарегистрироваться", callback_data=callback_data.CALLBACK_REGISTER)]]
     bind_button = [[InlineKeyboardButton("Привязать канал", callback_data=callback_data.CALLBACK_BIND_THE_CHANNEL)]]
@@ -35,13 +35,13 @@ async def start_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 async def register(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Регистрирует пользователя."""
     await services.create_user(update.effective_user)
-    await update.callback_query.edit_message_text(text="Вы зарегистрированы.")
+    await update.callback_query.edit_message_text(text="Вы зарегистрированы")
     return await start_menu(update, context)
 
 
 async def bind_the_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Кнопка для связывания канала и аккаунта пользователя."""
-    text = "Добавьте бот в ваш канал и перешлите любое сообщение из этого канала в чат бота."
+    text = "Добавьте бот в ваш канал и перешлите любое сообщение из этого канала в чат бота"
     context.user_data[constants.STOP_FORWARD] = True
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(text=text)
@@ -50,25 +50,16 @@ async def bind_the_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def type_channel_for_binding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Связывает аккаунт пользователя и канал."""
-    text = ""
-    user = await base.user_repository.get_user(update.effective_user.id)
     channel = await base.channel_repository.get_channel(update.message.forward_from_chat.id)
-    if channel is None:
-        text = f"Канал '{update.message.forward_from_chat.title}' отсутствует в БД."
-    else:
-        binding = await base.user_channel_repository.get_bind(user.id, channel.id)
-        if binding:
-            text = f"Канал '{update.message.forward_from_chat.title}' уже привязан к вашему аккаунту."
-        else:
-            admins = await context.bot.get_chat_administrators(chat_id=update.message.forward_from_chat.id)
-            for i in admins:
-                if i.user.id == update.effective_user.id:
-                    new_bind = models.UserChannel.new_bind(user.id, channel.id)
-                    await base.user_channel_repository.create(new_bind)
-                    text = f"Вы привязали канал '{update.message.forward_from_chat.title}'."
-                else:
-                    text = f"Вы не являетесь администратором канала '{update.message.forward_from_chat.title}'."
-    await update.message.reply_text(text=text)
+    if not channel:
+        return await start_menu(update, context)
+    user = await base.user_repository.get_user(update.effective_user.id)
+    bind = await base.bind_repository.get_bind(user.id, channel.id)
+    if not bind:
+        is_channel_admin = await services.check_user_admin_rights(update, context.bot)
+        if is_channel_admin:
+            await services.create_bind(user.id, channel.id)
+            await update.message.reply_text(text=f"Вы привязали канал '{update.message.forward_from_chat.title}'")
     return await start_menu(update, context)
 
 
@@ -84,7 +75,7 @@ async def my_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str
     buttons = channels_buttons + back_button
     keyboard = InlineKeyboardMarkup(buttons)
     await update.callback_query.answer()
-    await update.callback_query.edit_message_text(text="Список ваших каналов", reply_markup=keyboard)
+    await update.callback_query.edit_message_text(text="Список привязанных каналов", reply_markup=keyboard)
     return states.MY_CHANNELS_STATE
 
 
@@ -115,7 +106,7 @@ async def leave_the_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 async def edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Кнопка для изменения описания сообщения для выбранного канала."""
-    text = "Введите новое описание для канала."
+    text = "Введите новое описание для канала"
 
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(text=text)
@@ -127,7 +118,7 @@ async def input_description(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user_data = context.user_data
     user = update.effective_user.id
     user_data[user] = update.message.text
-    await update.message.reply_text(text="Описание изменено.")
+    await update.message.reply_text(text="Описание изменено")
     return await channel_menu(update, context)
 
 
