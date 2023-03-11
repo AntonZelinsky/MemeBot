@@ -24,14 +24,22 @@ async def update_channel(telegram_chat: telegram.Chat, channel: models.Channel) 
     return channel
 
 
-# async def check_exist_bind(update: telegram.Update):
-#     user = await base.user_repository.get_user(update.effective_user.id)
-#     channel = await base.channel_repository.get_channel(update.message.forward_from_chat.id)
-#     if channel:
-#         binding = await base.user_channel_repository.get_bind(user.id, channel.id)
+async def check_user_admin_rights(update: telegram.Update, telegram_bot: telegram.Bot) -> bool:
+    """Проверяет есть ли текущий пользователь администратором канала, из которого переслали сообщение."""
+    channel_admins = await telegram_bot.get_chat_administrators(chat_id=update.message.forward_from_chat.id)
+    for admin in channel_admins:
+        if admin.user.id == update.effective_user.id:
+            return True
+    return False
 
 
-async def posting_message(bind: models.UserChannel, message: telegram.Message, telegram_bot: telegram.Bot) -> None:
+async def create_bind(user_id: int, channel_id: int) -> None:
+    """Создает связь аккаунта пользователя и канала."""
+    new_bind = models.Bind.new_bind(user_id, channel_id)
+    await base.bind_repository.create(new_bind)
+
+
+async def posting_message(bind: models.Bind, message: telegram.Message, telegram_bot: telegram.Bot) -> None:
     """Публикует вложение из сообщения в каналы пользователя."""
     if message.animation:
         await telegram_bot.send_animation(
