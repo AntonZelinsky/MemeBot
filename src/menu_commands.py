@@ -56,7 +56,7 @@ async def type_channel_for_binding(update: Update, context: ContextTypes.DEFAULT
     user = await base.user_repository.get_user(update.effective_user.id)
     bind = await base.bind_repository.get_bind(user.id, channel.id)
     if not bind:
-        is_channel_admin = await services.check_user_admin_rights(update, context.bot)
+        is_channel_admin = await services.check_user_is_admin(update, context.bot)
         if is_channel_admin:
             await services.create_bind(user.id, channel.id)
             await update.message.reply_text(text=f"Вы привязали канал '{update.message.forward_from_chat.title}'")
@@ -66,10 +66,11 @@ async def type_channel_for_binding(update: Update, context: ContextTypes.DEFAULT
 async def my_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Меню каналов."""
     user = await base.user_repository.get_user(update.effective_user.id)
+    context.user_data[constants.CURRENT_USER] = user
     channels_buttons = []
     for bind in user.channels:
         channels_buttons.append(
-            [InlineKeyboardButton(bind.channel.title, callback_data=callback_data.CALLBACK_CHANNEL_MENU)],
+            [InlineKeyboardButton(bind.channel.title, callback_data=str(bind.channel.channel_id))],
         )
     back_button = [[InlineKeyboardButton("Назад", callback_data=callback_data.CALLBACK_BACK_TO_MAIN)]]
     buttons = channels_buttons + back_button
@@ -83,7 +84,6 @@ async def channel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
     """Меню канала."""
     buttons = [
         [InlineKeyboardButton("Изменить описание", callback_data=callback_data.CALLBACK_EDIT_DESCRIPTION)],
-        [InlineKeyboardButton("Выйти ботом из группы", callback_data=callback_data.CALLBACK_LEAVE_THE_CHANNEL)],
         [InlineKeyboardButton("Назад", callback_data=callback_data.CALLBACK_BACK_TO_CHANNELS)],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -91,17 +91,15 @@ async def channel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
     if update.callback_query:
         await update.callback_query.answer()
         await update.callback_query.edit_message_reply_markup(reply_markup=keyboard)
+        try:
+            channel_id = int(update.callback_query.data)
+            channel = await base.channel_repository.get_channel(channel_id)
+            context.user_data[constants.CURRENT_CHANNEL] = channel
+        except ValueError:
+            pass
     else:
         await update.message.reply_text(text="Меню канала", reply_markup=keyboard)
     return states.CHANNEL_MENU_STATE
-
-
-async def leave_the_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Выходит ботом из выбранного канала."""
-    text = "Вы вышли из канала {}"
-    await context.bot.leave_chat(chat_id=1001722199850)
-    await update.callback_query.edit_message_text(text=text)
-    return await my_channels(update, context)
 
 
 async def edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -115,9 +113,7 @@ async def edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def input_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Обрабатывает введенное пользователем новое описание для канала."""
-    user_data = context.user_data
-    user = update.effective_user.id
-    user_data[user] = update.message.text
+    await services.change_bind_description(update, context.user_data)
     await update.message.reply_text(text="Описание изменено")
     return await channel_menu(update, context)
 
