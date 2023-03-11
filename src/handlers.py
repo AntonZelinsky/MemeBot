@@ -17,7 +17,7 @@ async def start(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text(text=start_text)
 
 
-async def channel_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def channel_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """При добавлении бота в новый канал, сохраняет его в БД, иначе обновляет информацию в БД о нем."""
     if update.my_chat_member.chat.type in Chat.CHANNEL:
         previous_status = update.my_chat_member.old_chat_member.status
@@ -30,17 +30,9 @@ async def channel_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Парсит фото, видео и анимацию из полученного сообщения."""
+    """Парсит фото, видео и анимацию из полученного сообщения и пересылает в каналы пользователя."""
     user = await base.user_repository.get_user(update.effective_user.id)
     if context.user_data.get(constants.STOP_FORWARD, None) or not user:
         return
-    for i in user.channels:
-        print(i)
-    # try:
-    #     user = await user_repository.get_user(update.effective_user.id)
-    # except exc.NoResultFound:
-    #     raise exc.NoResultFound
-    # for channel in user.channels:
-    #     if channel and channel.is_active is True:
-    #         channel_id = channel.channel_id
-    #         await services.posting_message(update.message, channel_id, context.bot)
+    for bind in user.channels:
+        await services.posting_message(bind, update.message, context.bot)
