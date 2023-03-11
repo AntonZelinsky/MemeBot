@@ -1,30 +1,29 @@
 import telegram
+import telegram.ext
 
+from src.constants import constants
 from src.db import base, models
 
 
-async def create_user(telegram_user: telegram.User) -> models.User:
+async def create_user(telegram_user: telegram.User) -> None:
     """Создает пользователя в БД по данным из update."""
     parse_user = models.User.from_parse(telegram_user.to_dict())
-    user = await base.user_repository.create(parse_user)
-    return user
+    await base.user_repository.create(parse_user)
 
 
-async def create_channel(telegram_chat: telegram.Chat) -> models.Channel:
+async def create_channel(telegram_chat: telegram.Chat) -> None:
     """Создает канал в БД по данным из update."""
     parse_channel = models.Channel.from_parse(telegram_chat.to_dict())
-    channel = await base.channel_repository.create(parse_channel)
-    return channel
+    await base.channel_repository.create(parse_channel)
 
 
-async def update_channel(telegram_chat: telegram.Chat, channel: models.Channel) -> models.Channel:
+async def update_channel(telegram_chat: telegram.Chat, channel: models.Channel) -> None:
     """Обновляет канал в БД по данным из update."""
     parse_channel = models.Channel.from_parse(telegram_chat.to_dict())
-    channel = await base.channel_repository.update(channel.id, parse_channel)
-    return channel
+    await base.channel_repository.update(channel.id, parse_channel)
 
 
-async def check_user_admin_rights(update: telegram.Update, telegram_bot: telegram.Bot) -> bool:
+async def check_user_is_admin(update: telegram.Update, telegram_bot: telegram.Bot) -> bool:
     """Проверяет есть ли текущий пользователь администратором канала, из которого переслали сообщение."""
     channel_admins = await telegram_bot.get_chat_administrators(chat_id=update.message.forward_from_chat.id)
     for admin in channel_admins:
@@ -37,6 +36,15 @@ async def create_bind(user_id: int, channel_id: int) -> None:
     """Создает связь аккаунта пользователя и канала."""
     new_bind = models.Bind.new_bind(user_id, channel_id)
     await base.bind_repository.create(new_bind)
+
+
+async def change_bind_description(update: telegram.Update, user_data: telegram.ext.CallbackContext) -> None:
+    """Изменяет текст сообщения для постов в канале."""
+    user = user_data[constants.CURRENT_USER]
+    channel = user_data[constants.CURRENT_CHANNEL]
+    bind = await base.bind_repository.get_bind(user.id, channel.id)
+    bind.description = update.message.text
+    await base.bind_repository.update(bind)
 
 
 async def posting_message(bind: models.Bind, message: telegram.Message, telegram_bot: telegram.Bot) -> None:
