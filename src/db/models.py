@@ -12,10 +12,10 @@ class Base(DeclarativeBase):
     updated_at: Mapped[datetime.datetime] = mapped_column(default=func.now(), nullable=False, onupdate=func.now())
 
 
-class UserChannel(Base):
+class Bind(Base):
     """Модель связей пользователей и каналов."""
 
-    __tablename__ = "userchannel"
+    __tablename__ = "bind"
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channel.id"), primary_key=True)
     description: Mapped[Optional[str]]
@@ -23,7 +23,7 @@ class UserChannel(Base):
     channel: Mapped["Channel"] = relationship(back_populates="users", lazy="selectin")
 
     @classmethod
-    def new_bind(cls, user_id: int, channel_id: int) -> "UserChannel":
+    def new_bind(cls, user_id: int, channel_id: int) -> "Bind":
         return cls(
             user_id=user_id,
             channel_id=channel_id,
@@ -31,7 +31,7 @@ class UserChannel(Base):
 
     def __repr__(self) -> str:
         return (
-            f"UserChannel("
+            f"Bind("
             f"user_id={self.user_id!r}, "
             f"channel_id={self.channel_id!r}, "
             f"description={self.description!r})"
@@ -47,7 +47,7 @@ class User(Base):
     first_name: Mapped[str]
     last_name: Mapped[Optional[str]]
     username: Mapped[Optional[str]]
-    channels: Mapped[List["UserChannel"]] = relationship(
+    channels: Mapped[List["Bind"]] = relationship(
         back_populates="user",
         lazy="selectin",
         cascade="all, delete-orphan",
@@ -82,7 +82,7 @@ class Channel(Base):
     channel_id: Mapped[int] = mapped_column(BigInteger, unique=True)
     title: Mapped[str]
     username: Mapped[Optional[str]]
-    users: Mapped[List["UserChannel"]] = relationship(
+    users: Mapped[List["Bind"]] = relationship(
         back_populates="channel",
         lazy="selectin",
         cascade="all, delete-orphan",
