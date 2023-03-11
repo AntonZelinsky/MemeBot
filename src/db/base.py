@@ -27,14 +27,6 @@ class BaseRepository(Generic[T]):
         await self._session.close()
         return new_data
 
-    async def update(self, object_id: int, update_data: T) -> T:
-        """Обновляет объект текущей модели и возвращает его."""
-        update_data.id = object_id
-        update_data = await self._session.merge(update_data)
-        await self._session.commit()
-        await self._session.close()
-        return update_data
-
 
 class UserRepository(BaseRepository[User]):
     """Репозиторий для работы с моделью User в БД."""
@@ -55,6 +47,14 @@ class ChannelRepository(BaseRepository[Channel]):
     def __init__(self) -> None:
         super().__init__(Channel, async_session())
 
+    async def update(self, channel_id: int, update_data: Channel) -> Channel:
+        """Обновляет объект Channel и возвращает его."""
+        update_data.id = channel_id
+        update_data = await self._session.merge(update_data)
+        await self._session.commit()
+        await self._session.close()
+        return update_data
+
     async def get_channel(self, channel_id: int) -> Channel | None:
         """Возвращает объект Channel из БД по его channel_id, если его нет - возвращает None."""
         channel = await self._session.scalar(select(self._model).where(self._model.channel_id == channel_id))
@@ -68,13 +68,20 @@ class BindRepository(BaseRepository[Bind]):
     def __init__(self) -> None:
         super().__init__(Bind, async_session())
 
+    async def update(self, update_data: Bind) -> Bind:
+        """Обновляет объект Bind и возвращает его."""
+        update_data = await self._session.merge(update_data)
+        await self._session.commit()
+        await self._session.close()
+        return update_data
+
     async def get_bind(self, user_id: int, channel_id: int) -> Bind | None:
         """Возвращает объект UserChannel из БД по его user_id и channel_id, если его нет - возвращает None."""
-        user_channel = await self._session.scalar(
+        bind = await self._session.scalar(
             select(self._model).where(self._model.user_id == user_id and self._model.channel_id == channel_id),
         )
         await self._session.close()
-        return user_channel
+        return bind
 
 
 user_repository = UserRepository()
