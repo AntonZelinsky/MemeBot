@@ -3,7 +3,7 @@ from typing import Generic, TypeVar
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from src.db.models import Channel, User, UserChannel
+from src.db.models import Bind, Channel, User
 from src.settings import DATABASE_URL
 
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -62,13 +62,13 @@ class ChannelRepository(BaseRepository[Channel]):
         return channel
 
 
-class UserChannelRepository(BaseRepository[UserChannel]):
-    """Репозиторий для работы с моделью UserChannel в БД."""
+class BindRepository(BaseRepository[Bind]):
+    """Репозиторий для работы с моделью Bind в БД."""
 
     def __init__(self) -> None:
-        super().__init__(UserChannel, async_session())
+        super().__init__(Bind, async_session())
 
-    async def get_bind(self, user_id: int, channel_id: int) -> UserChannel | None:
+    async def get_bind(self, user_id: int, channel_id: int) -> Bind | None:
         """Возвращает объект UserChannel из БД по его user_id и channel_id, если его нет - возвращает None."""
         user_channel = await self._session.scalar(
             select(self._model).where(self._model.user_id == user_id and self._model.channel_id == channel_id),
@@ -79,4 +79,4 @@ class UserChannelRepository(BaseRepository[UserChannel]):
 
 user_repository = UserRepository()
 channel_repository = ChannelRepository()
-user_channel_repository = UserChannelRepository()
+bind_repository = BindRepository()
