@@ -65,7 +65,7 @@ class User(Base):
 
     def __repr__(self) -> str:
         return (
-            f"User("
+            f"{self.__class__.__qualname__}("
             f"id={self.id!r}, "
             f"account_id={self.account_id!r}, "
             f"first_name={self.first_name!r}, "
@@ -99,7 +99,7 @@ class Channel(Base):
 
     def __repr__(self) -> str:
         return (
-            f"Channel("
+            f"{self.__class__.__qualname__}("
             f"id={self.id!r}, "
             f"channel_id={self.channel_id!r}, "
             f"title={self.title!r}, "
