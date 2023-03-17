@@ -1,6 +1,5 @@
-START_MENU_STATE = "start"
 MAIN_MENU_STATE = "main_menu"
-MY_CHANNELS_STATE = "my_channels"
+BINDING = "binding"
+USER_CHANNELS_STATE = "user_channels"
 CHANNEL_MENU_STATE = "channel_menu"
 TYPING_DESCRIPTION = "change_description"
-BINDING_CHANNEL = "binding_channel"
