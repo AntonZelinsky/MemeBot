@@ -26,7 +26,7 @@ async def user_is_admin_in_channel(update: telegram.Update, telegram_bot: telegr
     for admin in channel_admins:
         if admin.user.id == user_id:
             return
-    raise exceptions.UserNotAdminInChannelError(user_id, channel_id)
+    raise exceptions.UserNotAdminInChannel(user_id, channel_id)
 
 
 async def create_bind(user_id: int, channel_id: int) -> None:
@@ -36,11 +36,10 @@ async def create_bind(user_id: int, channel_id: int) -> None:
 
 
 async def change_bind_description(new_description: str, user_data: telegram.ext.CallbackContext) -> None:
-    """Изменяет текст сообщения для постов в канале."""
+    """Изменяет текст сообщения для постов в выбранном канале."""
     user = user_data[constants.CURRENT_USER]
     channel = user_data[constants.CURRENT_CHANNEL]
-    bind = await base.bind_repository.get(user.id, channel.id)
-    await base.bind_repository.update_description(new_description, bind)
+    await base.bind_repository.update_description(user.id, channel.id, new_description)
 
 
 async def posting_message(bind: models.Bind, message: telegram.Message, telegram_bot: telegram.Bot) -> None:
