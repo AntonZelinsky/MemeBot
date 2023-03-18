@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, error
 from telegram.ext import ContextTypes, ConversationHandler
 
 from src import exceptions, services
@@ -6,13 +6,13 @@ from src.constants import callback_data, constants, states
 from src.db import base
 
 
-async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str | None:
     """Выводит главное меню при вызове команды /menu."""
     try:
         await base.user_repository.get(update.effective_user.id)
-    except exceptions.UserNotFoundError:
+    except exceptions.UserNotFound:
         await update.message.reply_text(text="Вы не зарегистрированы. Для регистрации введите команду /register")
-        raise
+        return
 
     context.user_data[constants.STOP_FORWARD] = False
     buttons = [
@@ -42,20 +42,25 @@ async def call_binding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
 
 async def binding_user_with_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Связывает аккаунт пользователя и канал, из которого переслали сообщение."""
-    text = ""
-    channel_title = update.message.forward_from_chat.title
+    text = None
+    channel_title = None
 
     try:
+        channel_title = update.message.forward_from_chat.title
         channel = await base.channel_repository.get(update.message.forward_from_chat.id)
         user = await base.user_repository.get(update.effective_user.id)
         await services.user_is_admin_in_channel(update, context.bot)
         await services.create_bind(user.id, channel.id)
-    except exceptions.ChannelNotFoundError:
+    except exceptions.ChannelNotFound:
         text = f"Канал '{channel_title}' не найден в БД. Добавьте бот в канал еще раз"
-    except exceptions.ObjectAlreadyExistsError:
+    except exceptions.ObjectAlreadyExists:
         text = f"Канал '{channel_title}' уже привязан к вашему аккаунту"
-    except exceptions.UserNotAdminInChannelError:
+    except exceptions.UserNotAdminInChannel:
         text = f"Вы не являетесь администратором канала '{channel_title}'"
+    except error.Forbidden:
+        text = f"Бот заблокирован в канале '{channel_title}'"
+    except AttributeError:
+        text = "Сообщение не является репостом из другого канала"
     else:
         text = f"Вы привязали канал '{channel_title}'"
     finally:
@@ -64,7 +69,7 @@ async def binding_user_with_channel(update: Update, context: ContextTypes.DEFAUL
 
 
 async def user_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Выводит меню с каналами, привязанными к данному аккаунту."""
+    """Выводит меню с каналами, привязанными к аккаунту пользователя."""
     user = await base.user_repository.get(update.effective_user.id)
     context.user_data[constants.CURRENT_USER] = user
     channels_buttons = []
@@ -101,7 +106,7 @@ async def channel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
 
 
 async def edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Кнопка для изменения описания сообщения для выбранного канала."""
+    """Кнопка для изменения описания сообщения в выбранном канале."""
     text = "Введите новое описание для канала"
 
     await update.callback_query.answer()
