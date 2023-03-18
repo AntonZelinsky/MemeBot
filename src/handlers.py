@@ -6,7 +6,7 @@ from src.constants import constants
 from src.db import base
 
 
-async def start_handler(update: Update, context: CallbackContext) -> None:
+async def start_message_handler(update: Update, context: CallbackContext) -> None:
     """Выводит приветственное сообщение при вызове команды /start."""
     start_text = (
         "Привет. Я — Мем бот и буду помогать вам постить мемы в ваши каналы.\n"
@@ -18,28 +18,27 @@ async def start_handler(update: Update, context: CallbackContext) -> None:
     await update.message.reply_text(text=start_text)
 
 
-async def register_handler(update: Update, context: CallbackContext) -> None:
-    """Регистрирует пользователя при вызове команды /register."""
+async def user_register_handler(update: Update, context: CallbackContext) -> None:
+    """Создает пользователя в БД при вызове команды /register."""
     message = ""
     try:
         await services.create_user(update.effective_user)
-    except exceptions.ObjectAlreadyExistsError:
+    except exceptions.ObjectAlreadyExists:
         message = "Вы уже зарегистрированы. Для вызова меню используйте команду /menu"
-        raise
     else:
         message = "Вы успешно зарегистрированы. Для вызова меню используйте команду /menu"
     finally:
         await update.message.reply_text(text=message)
 
 
-async def channel_chat_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def channel_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """При добавлении бота в новый канал, сохраняет его в БД."""
     my_chat = update.my_chat_member
-    if (my_chat.chat.type in Chat.CHANNEL) and (my_chat.old_chat_member.status in [ChatMember.BANNED, ChatMember.LEFT]):
+    if my_chat.chat.type in Chat.CHANNEL and my_chat.old_chat_member.status in [ChatMember.BANNED, ChatMember.LEFT]:
         try:
             await services.create_channel(update.my_chat_member.chat)
-        except exceptions.ObjectAlreadyExistsError:
-            pass
+        except exceptions.ObjectAlreadyExists:
+            return
 
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -49,7 +48,7 @@ async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAU
 
     try:
         user = await base.user_repository.get(update.effective_user.id)
-    except exceptions.UserNotFoundError:
+    except exceptions.UserNotFound:
         await update.message.reply_text(text="Прежде чем пользоваться ботом, вы должны зарегистрироваться")
     else:
         for bind in user.channels:
