@@ -1,6 +1,6 @@
 from typing import Generic, TypeVar
 
-from sqlalchemy import exc, select
+from sqlalchemy import exc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src import exceptions
@@ -14,20 +14,20 @@ T = TypeVar("T")
 
 
 class BaseRepository(Generic[T]):
-    """Базовый репозиторий. Позволяет создавать и обновляет объект в БД."""
+    """Базовый репозиторий. Позволяет создавать объект в БД."""
 
     def __init__(self, model: T, session: AsyncSession) -> None:
         self._model = model
         self._session = session
 
     async def create(self, new_data: T) -> T:
-        """Создает объект текущей модели и возвращает его."""
+        """Создает объект текущей модели и возвращает его, иначе возвращает ошибку ObjectAlreadyExists."""
         try:
             self._session.add(new_data)
             await self._session.commit()
-        except exc.IntegrityError:
+        except exc.IntegrityError as e:
             await self._session.rollback()
-            raise exceptions.ObjectAlreadyExistsError(new_data)
+            raise exceptions.ObjectAlreadyExists(new_data) from e
         else:
             await self._session.refresh(new_data)
             return new_data
@@ -42,12 +42,12 @@ class UserRepository(BaseRepository[User]):
         super().__init__(User, async_session())
 
     async def get(self, account_id: int) -> User:
-        """Возвращает объект User из БД по его account_id."""
+        """Возвращает объект User из БД по его account_id, иначе возвращает ошибку UserNotFound."""
         try:
             user = await self._session.scalars(select(self._model).where(self._model.account_id == account_id))
             return user.one()
-        except exc.NoResultFound:
-            raise exceptions.UserNotFoundError(account_id)
+        except exc.NoResultFound as e:
+            raise exceptions.UserNotFound(account_id) from e
         finally:
             await self._session.close()
 
@@ -59,12 +59,12 @@ class ChannelRepository(BaseRepository[Channel]):
         super().__init__(Channel, async_session())
 
     async def get(self, channel_id: int) -> Channel:
-        """Возвращает объект Channel из БД по его channel_id."""
+        """Возвращает объект Channel из БД по его channel_id, иначе возвращает ошибку ChannelNotFound."""
         try:
             channel = await self._session.scalars(select(self._model).where(self._model.channel_id == channel_id))
             return channel.one()
-        except exc.NoResultFound:
-            raise exceptions.ChannelNotFoundError(channel_id)
+        except exc.NoResultFound as e:
+            raise exceptions.ChannelNotFound(channel_id) from e
         finally:
             await self._session.close()
 
@@ -75,21 +75,15 @@ class BindRepository(BaseRepository[Bind]):
     def __init__(self) -> None:
         super().__init__(Bind, async_session())
 
-    async def get(self, user_id: int, channel_id: int) -> Bind:
-        """Возвращает объект UserChannel из БД по его user_id и channel_id."""
-        bind = await self._session.scalar(
-            select(self._model).where(self._model.user_id == user_id and self._model.channel_id == channel_id),
+    async def update_description(self, user_id: int, channel_id: int, new_description: str) -> None:
+        """Обновляет описание у Bind с полученными user_id и channel_id."""
+        await self._session.execute(
+            update(self._model)
+            .where(self._model.user_id == user_id and self._model.channel_id == channel_id)
+            .values(description=new_description),
         )
-        await self._session.close()
-        return bind
-
-    async def update_description(self, new_description: str, bind: Bind) -> Bind:
-        """Обновляет описание у Bind и возвращает обновленный Bind."""
-        bind.description = new_description
-        updated_bind = await self._session.merge(bind)
         await self._session.commit()
         await self._session.close()
-        return updated_bind
 
 
 user_repository = UserRepository()
