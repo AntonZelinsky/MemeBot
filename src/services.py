@@ -7,13 +7,13 @@ from src.db import base, models
 
 
 async def create_user(telegram_user: telegram.User) -> None:
-    """Запускает парсер update и из полученных данных создает пользователя в БД."""
+    """Запускает парсер update и создание пользователя из полученных данных."""
     parse_user = models.User.from_parse(telegram_user.to_dict())
     await base.user_repository.create(parse_user)
 
 
 async def create_channel(telegram_chat: telegram.Chat) -> None:
-    """Запускает парсер update и из полученных данных создает канал в БД."""
+    """Запускает парсер update и создание канала из полученных данных."""
     parse_channel = models.Channel.from_parse(telegram_chat.to_dict())
     await base.channel_repository.create(parse_channel)
 
@@ -43,7 +43,7 @@ async def change_bind_description(new_description: str, user_data: telegram.ext.
 
 
 async def posting_message(bind: models.Bind, message: telegram.Message, telegram_bot: telegram.Bot) -> None:
-    """Публикует вложение из сообщения в канал пользователя."""
+    """Публикует вложение из сообщения в канал пользователя с необходимым текстом сообщения."""
     if message.animation:
         await telegram_bot.send_animation(
             chat_id=bind.channel.channel_id,
