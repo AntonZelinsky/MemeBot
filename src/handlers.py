@@ -15,12 +15,14 @@ async def start_message_handler(update: Update, context: CallbackContext) -> Non
         "будет добавление бота в канал, в который вы хотите публиковать сообщения и привязка этого канала к вашему "
         "аккаунту. Боту в канале достаточно дать права на отправку сообщений."
     )
+    # Разрешает пересылать пользователю сообщения в каналы
+    context.user_data[constants.STOP_FORWARD] = False
     await update.message.reply_text(text=start_text)
 
 
 async def user_register_handler(update: Update, context: CallbackContext) -> None:
     """Создает пользователя в БД при вызове команды /register."""
-    message = ""
+    message = " "
     try:
         await services.create_user(update.effective_user)
     except exceptions.ObjectAlreadyExists:
@@ -32,7 +34,7 @@ async def user_register_handler(update: Update, context: CallbackContext) -> Non
 
 
 async def channel_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """При добавлении бота в новый канал, сохраняет его в БД."""
+    """При добавлении бота в канал сохраняет его в БД. Если такой канал уже есть в БД - обрабатывается исключение."""
     my_chat = update.my_chat_member
     if my_chat.chat.type in Chat.CHANNEL and my_chat.old_chat_member.status in [ChatMember.BANNED, ChatMember.LEFT]:
         try:
