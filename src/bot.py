@@ -18,10 +18,14 @@ filterwarnings(action="ignore", message=r".*CallbackQueryHandler", category=PTBU
 
 
 def create_bot():
-    builder = Application.builder()
-    builder.token(settings.BOT_TOKEN)
-    builder.concurrent_updates(False)
-    application = builder.build()
+    application = (
+        Application.builder()
+        .token(settings.BOT_TOKEN)
+        .concurrent_updates(False)
+        .read_timeout(30)
+        .write_timeout(30)
+        .build()
+    )
     menu_handler = ConversationHandler(
         entry_points=[CommandHandler("menu", menu_commands.main_menu, filters.ChatType.PRIVATE)],
         states={
