@@ -1,4 +1,4 @@
-from telegram import Chat, ChatMember, Update
+from telegram import Chat, ChatMember, Update, error
 from telegram.ext import CallbackContext, ContextTypes
 
 from src import exceptions, services
@@ -50,6 +50,16 @@ async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAU
         user = await base.user_repository.get(update.effective_user.id)
     except exceptions.UserNotFound:
         await update.message.reply_text(text="Прежде чем пользоваться ботом, вы должны зарегистрироваться")
-    else:
-        for bind in user.channels:
+        return
+
+    for bind in user.channels:
+        try:
             await services.posting_message(bind, update.message, context.bot)
+        except error.Forbidden:
+            await update.message.reply_text(
+                text=f"Невозможно отправить сообщение в канал '{bind.channel.title}'. Бот удален из канала",
+            )
+        except error.BadRequest:
+            await update.message.reply_text(
+                text=f"Невозможно отправить сообщение в канал '{bind.channel.title}'. У бота недостаточно прав",
+            )
