@@ -106,8 +106,8 @@ async def channel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
 
 
 async def edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Кнопка для изменения описания сообщения в выбранном канале."""
-    text = "Введите новое описание для канала"
+    """Кнопка для изменения текста сообщения в выбранном канале."""
+    text = "Введите новый текст сообщения для канала"
 
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(text=text)
@@ -115,7 +115,7 @@ async def edit_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def input_description(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Обрабатывает введенное пользователем новое описание для канала."""
+    """Обрабатывает введенный пользователем текст сообщения для канала."""
     new_description = update.message.text
     await services.change_bind_description(new_description, context.user_data)
     await update.message.reply_text(text=f"Описание изменено. Новое описание '{new_description}'")
