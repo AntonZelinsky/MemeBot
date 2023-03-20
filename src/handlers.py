@@ -1,59 +1,36 @@
 from telegram import Chat, ChatMember, Update, error
 from telegram.ext import CallbackContext, ContextTypes
 
-from src import exceptions, services
+from src import services
 from src.constants import constants
 from src.db import base
 
 
 async def start_message_handler(update: Update, context: CallbackContext) -> None:
-    """Выводит приветственное сообщение при вызове команды /start."""
+    """Выводит приветственное сообщение при вызове команды /start и регистрирует пользователя."""
     start_text = (
         "Привет. Я — Мем бот и буду помогать вам постить мемы в ваши каналы.\n"
-        "Чтобы начать работу вам необходимо зарегистрироваться в боте, сделать это можно вызвав команду /register. \n"
-        "Как только вы зарегистрируетесь, вы сможете вызвать меню бота командой /menu. Следующим шагом будет "
-        "будет добавление бота в канал, в который вы хотите публиковать сообщения и привязка этого канала к вашему "
-        "аккаунту. Боту в канале достаточно дать права на отправку сообщений."
+        "Перед началом работы с ботом, вам необходимо добавить бота в ваши каналы и через меню привязать каналы "
+        "к вашему аккаунту. Вызвать меню бота можно командой /menu"
     )
+    await services.create_user(update.effective_user)
     # Разрешает пересылать пользователю сообщения в каналы
     context.user_data[constants.STOP_FORWARD] = False
     await update.message.reply_text(text=start_text)
-
-
-async def user_register_handler(update: Update, context: CallbackContext) -> None:
-    """Создает пользователя в БД при вызове команды /register."""
-    message = " "
-    try:
-        await services.create_user(update.effective_user)
-    except exceptions.ObjectAlreadyExists:
-        message = "Вы уже зарегистрированы. Для вызова меню используйте команду /menu"
-    else:
-        message = "Вы успешно зарегистрированы. Для вызова меню используйте команду /menu"
-    finally:
-        await update.message.reply_text(text=message)
 
 
 async def channel_register_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """При добавлении бота в канал сохраняет его в БД. Если такой канал уже есть в БД - обрабатывается исключение."""
     my_chat = update.my_chat_member
     if my_chat.chat.type in Chat.CHANNEL and my_chat.old_chat_member.status in [ChatMember.BANNED, ChatMember.LEFT]:
-        try:
-            await services.create_channel(update.my_chat_member.chat)
-        except exceptions.ObjectAlreadyExists:
-            return
+        await services.create_channel(update.my_chat_member.chat)
 
 
 async def forward_attachment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Парсит фото, видео и анимацию из полученного сообщения и пересылает в каналы пользователя."""
+    """Перебирает каналы пользователя и вызывает функцию публикации вложений в эти каналы."""
     if context.user_data.get(constants.STOP_FORWARD, False):
         return
-
-    try:
-        user = await base.user_repository.get(update.effective_user.id)
-    except exceptions.UserNotFound:
-        await update.message.reply_text(text="Прежде чем пользоваться ботом, вы должны зарегистрироваться")
-        return
-
+    user = await base.user_repository.get(update.effective_user.id)
     for bind in user.channels:
         try:
             await services.posting_message(bind, update.message, context.bot)
