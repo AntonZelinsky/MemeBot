@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, error
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from src import exceptions, services
@@ -8,12 +8,6 @@ from src.db import base
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str | None:
     """Выводит главное меню при вызове команды /menu."""
-    try:
-        await base.user_repository.get(update.effective_user.id)
-    except exceptions.UserNotFound:
-        await update.message.reply_text(text="Вы не зарегистрированы. Для регистрации введите команду /register")
-        return
-
     context.user_data[constants.STOP_FORWARD] = False
     buttons = [
         [InlineKeyboardButton("Привязать канал", callback_data=callback_data.CALLBACK_CALL_BINDING)],
@@ -33,7 +27,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str |
 
 async def call_binding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Вызывает функцию привязки канала и блокирует пересылку сообщений в каналы пользователя."""
-    text = "Добавьте бот в ваш канал и перешлите любое сообщение из этого канала в этот чат"
+    text = "Добавьте бот в ваш канал и перешлите одно любое сообщение из этого канала в этот чат"
     context.user_data[constants.STOP_FORWARD] = True
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(text=text)
@@ -51,16 +45,16 @@ async def binding_user_with_channel(update: Update, context: ContextTypes.DEFAUL
         user = await base.user_repository.get(update.effective_user.id)
         await services.user_is_admin_in_channel(update, context.bot)
         await services.create_bind(user.id, channel.id)
-    except exceptions.ChannelNotFound:
-        text = f"Канал '{channel_title}' не найден в БД. Добавьте бот в канал еще раз"
-    except exceptions.ObjectAlreadyExists:
-        text = f"Канал '{channel_title}' уже привязан к вашему аккаунту"
-    except exceptions.UserNotAdminInChannel:
-        text = f"Вы не являетесь администратором канала '{channel_title}'"
-    except error.Forbidden:
-        text = f"Бот заблокирован в канале '{channel_title}'"
     except AttributeError:
         text = "Сообщение не является репостом из другого канала"
+    except exceptions.ChannelNotFound:
+        text = f"Канал '{channel_title}' не найден в БД. Добавьте бот в канал еще раз"
+    except exceptions.BotKickedFromTheChannel:
+        text = f"Бот был удален из канала '{channel_title}'"
+    except exceptions.UserIsNotAdminInChannel:
+        text = f"Вы не являетесь администратором канала '{channel_title}'"
+    except exceptions.ObjectAlreadyExists:
+        text = f"Канал '{channel_title}' уже привязан к вашему аккаунту"
     else:
         text = f"Вы привязали канал '{channel_title}'"
     finally:
