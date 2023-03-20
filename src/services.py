@@ -9,24 +9,34 @@ from src.db import base, models
 async def create_user(telegram_user: telegram.User) -> None:
     """Запускает парсер update и создание пользователя из полученных данных."""
     parse_user = models.User.from_parse(telegram_user.to_dict())
-    await base.user_repository.create(parse_user)
+    try:
+        await base.user_repository.create(parse_user)
+    except exceptions.ObjectAlreadyExists:
+        pass
 
 
 async def create_channel(telegram_chat: telegram.Chat) -> None:
     """Запускает парсер update и создание канала из полученных данных."""
     parse_channel = models.Channel.from_parse(telegram_chat.to_dict())
-    await base.channel_repository.create(parse_channel)
+    try:
+        await base.channel_repository.create(parse_channel)
+    except exceptions.ObjectAlreadyExists:
+        pass
 
 
 async def user_is_admin_in_channel(update: telegram.Update, telegram_bot: telegram.Bot) -> None:
     """Проверяет, является ли текущий пользователь администратором канала, из которого переслали сообщение."""
     user_id = update.effective_user.id
     channel_id = update.message.forward_from_chat.id
-    channel_admins = await telegram_bot.get_chat_administrators(chat_id=channel_id)
+    try:
+        channel_admins = await telegram_bot.get_chat_administrators(chat_id=channel_id)
+    except telegram.error.Forbidden as e:
+        raise exceptions.BotKickedFromTheChannel(channel_id) from e
+
     for admin in channel_admins:
         if admin.user.id == user_id:
             return
-    raise exceptions.UserNotAdminInChannel(user_id, channel_id)
+    raise exceptions.UserIsNotAdminInChannel(user_id, channel_id)
 
 
 async def create_bind(user_id: int, channel_id: int) -> None:
