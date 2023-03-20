@@ -16,10 +16,16 @@ class ObjectAlreadyExists(Exception):
         super().__init__(f"Ошибка при создании объекта {self.instance}. Объект с таким id уже существует в БД.")
 
 
-class UserNotAdminInChannel(Exception):
+class UserIsNotAdminInChannel(Exception):
     def __init__(self, account_id: int, channel_id: int) -> None:
         self.account = account_id
         self.channel = channel_id
         super().__init__(
             f"Аккаунт account_id={self.account_id} не является администратором канала channel_id={self.channel_id}",
         )
+
+
+class BotKickedFromTheChannel(Exception):
+    def __init__(self, channel_id: int) -> None:
+        self.channel_id = channel_id
+        super().__init__(f"Бот был удален из канала channel_id={channel_id}")
