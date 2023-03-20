@@ -52,7 +52,6 @@ def create_bot():
         fallbacks=[CommandHandler("menu", menu_commands.main_menu)],
     )
     application.add_handler(CommandHandler("start", handlers.start_message_handler, filters.ChatType.PRIVATE))
-    application.add_handler(CommandHandler("register", handlers.user_register_handler, filters.ChatType.PRIVATE))
     application.add_handler(ChatMemberHandler(handlers.channel_register_handler, ChatMemberHandler.MY_CHAT_MEMBER))
     application.add_handler(menu_handler)
     application.add_handler(
