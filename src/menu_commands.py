@@ -21,7 +21,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str |
         await update.callback_query.answer()
         await update.callback_query.edit_message_reply_markup(reply_markup=keyboard)
     else:
-        await update.message.reply_text(text="Стартовое меню", reply_markup=keyboard)
+        await update.message.reply_text(text="Главное меню", reply_markup=keyboard)
     return states.MAIN_MENU_STATE
 
 
@@ -47,13 +47,13 @@ async def binding_user_with_channel(update: Update, context: ContextTypes.DEFAUL
         await services.create_bind(user.id, channel.id)
     except AttributeError:
         text = "Сообщение не является репостом из другого канала"
-    except exceptions.ChannelNotFound:
+    except exceptions.ChannelNotFoundError:
         text = f"Канал '{channel_title}' не найден в БД. Добавьте бот в канал еще раз"
     except exceptions.BotKickedFromTheChannel:
         text = f"Бот был удален из канала '{channel_title}'"
     except exceptions.UserIsNotAdminInChannel:
         text = f"Вы не являетесь администратором канала '{channel_title}'"
-    except exceptions.ObjectAlreadyExists:
+    except exceptions.ObjectAlreadyExistsError:
         text = f"Канал '{channel_title}' уже привязан к вашему аккаунту"
     else:
         text = f"Вы привязали канал '{channel_title}'"
@@ -75,7 +75,7 @@ async def user_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
     buttons = channels_buttons + back_button
     keyboard = InlineKeyboardMarkup(buttons)
     await update.callback_query.answer()
-    await update.callback_query.edit_message_text(text="Список привязанных каналов", reply_markup=keyboard)
+    await update.callback_query.edit_message_text(text="Список подключенных каналы", reply_markup=keyboard)
     return states.USER_CHANNELS_STATE
 
 
