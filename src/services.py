@@ -11,7 +11,7 @@ async def create_user(telegram_user: telegram.User) -> None:
     parse_user = models.User.from_parse(telegram_user.to_dict())
     try:
         await base.user_repository.create(parse_user)
-    except exceptions.ObjectAlreadyExists:
+    except exceptions.ObjectAlreadyExistsError:
         pass
 
 
@@ -20,7 +20,7 @@ async def create_channel(telegram_chat: telegram.Chat) -> None:
     parse_channel = models.Channel.from_parse(telegram_chat.to_dict())
     try:
         await base.channel_repository.create(parse_channel)
-    except exceptions.ObjectAlreadyExists:
+    except exceptions.ObjectAlreadyExistsError:
         pass
 
 
