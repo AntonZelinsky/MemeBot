@@ -21,13 +21,13 @@ class BaseRepository(Generic[T]):
         self._session = session
 
     async def create(self, new_data: T) -> T:
-        """Создает объект текущей модели и возвращает его, иначе возвращает ошибку ObjectAlreadyExists."""
+        """Создает объект текущей модели и возвращает его, иначе возвращает ошибку ObjectAlreadyExistsError."""
         try:
             self._session.add(new_data)
             await self._session.commit()
         except exc.IntegrityError as e:
             await self._session.rollback()
-            raise exceptions.ObjectAlreadyExists(new_data) from e
+            raise exceptions.ObjectAlreadyExistsError(new_data) from e
         else:
             await self._session.refresh(new_data)
             return new_data
@@ -42,12 +42,12 @@ class UserRepository(BaseRepository[User]):
         super().__init__(User, async_session())
 
     async def get(self, account_id: int) -> User:
-        """Возвращает объект User из БД по его account_id, иначе возвращает ошибку UserNotFound."""
+        """Возвращает объект User из БД по его account_id, иначе возвращает ошибку UserNotFoundError."""
         try:
             user = await self._session.scalars(select(self._model).where(self._model.account_id == account_id))
             return user.one()
         except exc.NoResultFound as e:
-            raise exceptions.UserNotFound(account_id) from e
+            raise exceptions.UserNotFoundError(account_id) from e
         finally:
             await self._session.close()
 
@@ -59,12 +59,12 @@ class ChannelRepository(BaseRepository[Channel]):
         super().__init__(Channel, async_session())
 
     async def get(self, channel_id: int) -> Channel:
-        """Возвращает объект Channel из БД по его channel_id, иначе возвращает ошибку ChannelNotFound."""
+        """Возвращает объект Channel из БД по его channel_id, иначе возвращает ошибку ChannelNotFoundError."""
         try:
             channel = await self._session.scalars(select(self._model).where(self._model.channel_id == channel_id))
             return channel.one()
         except exc.NoResultFound as e:
-            raise exceptions.ChannelNotFound(channel_id) from e
+            raise exceptions.ChannelNotFoundError(channel_id) from e
         finally:
             await self._session.close()
 
