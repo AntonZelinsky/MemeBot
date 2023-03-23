@@ -40,6 +40,7 @@ def create_bot():
             ],
             states.CHANNEL_MENU_STATE: [
                 CallbackQueryHandler(menu_commands.edit_description, pattern=callback_data.CALLBACK_EDIT_DESCRIPTION),
+                CallbackQueryHandler(menu_commands.remove_binding, pattern=callback_data.CALLBACK_REMOVE_BINDING),
                 CallbackQueryHandler(menu_commands.user_channels, pattern=callback_data.CALLBACK_BACK_TO_CHANNELS),
             ],
             states.BINDING: [

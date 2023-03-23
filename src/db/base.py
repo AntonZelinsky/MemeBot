@@ -1,6 +1,6 @@
 from typing import Generic, TypeVar
 
-from sqlalchemy import exc, select, update
+from sqlalchemy import delete, exc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src import exceptions
@@ -81,6 +81,14 @@ class BindRepository(BaseRepository[Bind]):
             update(self._model)
             .where(self._model.user_id == user_id and self._model.channel_id == channel_id)
             .values(description=new_description),
+        )
+        await self._session.commit()
+        await self._session.close()
+
+    async def remove(self, user_id: int, channel_id: int) -> None:
+        """Удаляет связь канала и пользователя."""
+        await self._session.execute(
+            delete(self._model).where(self._model.user_id == user_id and self._model.channel_id == channel_id),
         )
         await self._session.commit()
         await self._session.close()

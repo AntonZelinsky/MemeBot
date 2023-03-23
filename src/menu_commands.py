@@ -83,6 +83,7 @@ async def channel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> st
     """Выводит меню выбранного канала."""
     buttons = [
         [InlineKeyboardButton("Изменить описание", callback_data=callback_data.CALLBACK_EDIT_DESCRIPTION)],
+        [InlineKeyboardButton("Отвязать канал", callback_data=callback_data.CALLBACK_REMOVE_BINDING)],
         [InlineKeyboardButton("Назад", callback_data=callback_data.CALLBACK_BACK_TO_CHANNELS)],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -114,6 +115,12 @@ async def input_description(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await services.change_bind_description(new_description, context.user_data)
     await update.message.reply_text(text=f"Описание изменено. Новое описание '{new_description}'")
     return await channel_menu(update, context)
+
+
+async def remove_binding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Удаляет привязку канала к аккаунту пользователя."""
+    await services.remove_bind(context.user_data)
+    return await user_channels(update, context)
 
 
 async def close_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

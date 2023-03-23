@@ -46,10 +46,17 @@ async def create_bind(user_id: int, channel_id: int) -> None:
 
 
 async def change_bind_description(new_description: str, user_data: telegram.ext.CallbackContext) -> None:
-    """Изменяет текст сообщения для постов в выбранном канале."""
+    """Получает данные из user_data и вызывает функцию изменения текста сообщения в выбранном канале."""
     user = user_data[constants.CURRENT_USER]
     channel = user_data[constants.CURRENT_CHANNEL]
     await base.bind_repository.update_description(user.id, channel.id, new_description)
+
+
+async def remove_bind(user_data: telegram.ext.CallbackContext) -> None:
+    """Получает данные из user_data и вызывает функцию удаления связи пользователя и канала."""
+    user = user_data[constants.CURRENT_USER]
+    channel = user_data[constants.CURRENT_CHANNEL]
+    await base.bind_repository.remove(user.id, channel.id)
 
 
 async def posting_message(bind: models.Bind, message: telegram.Message, telegram_bot: telegram.Bot) -> None:
