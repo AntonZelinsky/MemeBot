@@ -1,23 +1,64 @@
+from warnings import filterwarnings
+
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
+    CallbackQueryHandler,
     ChatMemberHandler,
     CommandHandler,
+    ConversationHandler,
     MessageHandler,
     filters,
 )
+from telegram.warnings import PTBUserWarning
 
-from src.handlers import forward_attachment_handler, start, track_chats_handler
-from src.settings import BOT_TOKEN
+from src import handlers, menu_commands, settings
+from src.constants import callback_data, states
+
+filterwarnings(action="ignore", message=r".*CallbackQueryHandler", category=PTBUserWarning)
 
 
 def create_bot():
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(ChatMemberHandler(track_chats_handler, ChatMemberHandler.MY_CHAT_MEMBER))
+    application = (
+        Application.builder()
+        .token(settings.BOT_TOKEN)
+        .concurrent_updates(False)
+        .read_timeout(30)
+        .write_timeout(30)
+        .build()
+    )
+    menu_handler = ConversationHandler(
+        entry_points=[CommandHandler("menu", menu_commands.main_menu, filters.ChatType.PRIVATE)],
+        states={
+            states.MAIN_MENU_STATE: [
+                CallbackQueryHandler(menu_commands.call_binding, pattern=callback_data.CALLBACK_CALL_BINDING),
+                CallbackQueryHandler(menu_commands.user_channels, pattern=callback_data.CALLBACK_USER_CHANNELS),
+                CallbackQueryHandler(menu_commands.close_menu, pattern=callback_data.CALLBACK_CLOSE_MENU),
+            ],
+            states.USER_CHANNELS_STATE: [
+                CallbackQueryHandler(menu_commands.channel_menu, pattern=callback_data.CALLBACK_CHANNEL_MENU),
+                CallbackQueryHandler(menu_commands.main_menu, pattern=callback_data.CALLBACK_BACK_TO_MAIN),
+            ],
+            states.CHANNEL_MENU_STATE: [
+                CallbackQueryHandler(menu_commands.edit_description, pattern=callback_data.CALLBACK_EDIT_DESCRIPTION),
+                CallbackQueryHandler(menu_commands.remove_binding, pattern=callback_data.CALLBACK_REMOVE_BINDING),
+                CallbackQueryHandler(menu_commands.user_channels, pattern=callback_data.CALLBACK_BACK_TO_CHANNELS),
+            ],
+            states.BINDING: [
+                MessageHandler(filters.ALL, menu_commands.binding_user_with_channel),
+            ],
+            states.TYPING_DESCRIPTION: [
+                MessageHandler(filters.TEXT, menu_commands.input_description),
+            ],
+        },
+        fallbacks=[CommandHandler("menu", menu_commands.main_menu)],
+    )
+    application.add_handler(CommandHandler("start", handlers.start_message_handler, filters.ChatType.PRIVATE))
+    application.add_handler(ChatMemberHandler(handlers.channel_register_handler, ChatMemberHandler.MY_CHAT_MEMBER))
+    application.add_handler(menu_handler)
     application.add_handler(
         MessageHandler(
             filters.ChatType.PRIVATE & (filters.VIDEO | filters.PHOTO | filters.ANIMATION),
-            forward_attachment_handler,
+            handlers.forward_attachment_handler,
         ),
     )
     return application

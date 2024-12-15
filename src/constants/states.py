@@ -1,0 +1,5 @@
+MAIN_MENU_STATE = "main_menu"
+BINDING = "binding"
+USER_CHANNELS_STATE = "user_channels"
+CHANNEL_MENU_STATE = "channel_menu"
+TYPING_DESCRIPTION = "change_description"

@@ -1,0 +1,8 @@
+CALLBACK_CALL_BINDING = "call_binding"
+CALLBACK_USER_CHANNELS = "user_channels"
+CALLBACK_CLOSE_MENU = "close_menu"
+CALLBACK_CHANNEL_MENU = "^-100"
+CALLBACK_BACK_TO_MAIN = "back_to_main"
+CALLBACK_EDIT_DESCRIPTION = "edit_description"
+CALLBACK_BACK_TO_CHANNELS = "back_to_channels"
+CALLBACK_REMOVE_BINDING = "remove_binding"
